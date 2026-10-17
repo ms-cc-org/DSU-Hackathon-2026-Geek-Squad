@@ -221,7 +221,7 @@ def evaluate_out_of_sample_validation(
     results = []
     for yr in sorted(test_df["year"].unique()):
         ydf = test_df[test_df["year"] == yr].copy()
-        if len(ydf) < 15:
+        if len(ydf) == 0:
             continue
             
         k = max(1, int(len(ydf) * top_k_pct))
@@ -255,29 +255,31 @@ def evaluate_out_of_sample_validation(
         })
         
     res_df = pd.DataFrame(results)
-    
+
     # Summary Metrics across loss years
-    active_years = res_df[res_df["actual_severe_counties"] > 0]
-    total_budget_slots = active_years["tier1_quota_k"].sum()
-    total_severe = active_years["actual_severe_counties"].sum()
-    
-    total_model_hits = active_years["model_urgency_hits"].sum()
-    total_rain_hits = active_years["rain_deficit_hits"].sum()
-    total_dsci_hits = active_years["pure_dsci_hits"].sum()
-    total_rand_hits = active_years["random_expected_hits"].sum()
-    
+    active_years = res_df[res_df["actual_severe_counties"] > 0] if not res_df.empty else res_df
+    total_budget_slots = active_years["tier1_quota_k"].sum() if not active_years.empty else 0
+    total_severe = active_years["actual_severe_counties"].sum() if not active_years.empty else 0
+
+    total_model_hits = active_years["model_urgency_hits"].sum() if not active_years.empty else 0
+    total_rain_hits = active_years["rain_deficit_hits"].sum() if not active_years.empty else 0
+    total_dsci_hits = active_years["pure_dsci_hits"].sum() if not active_years.empty else 0
+    total_rand_hits = active_years["random_expected_hits"].sum() if not active_years.empty else 0
+
     summary = {
-        "test_years": f"{test_years[0]}–{test_years[1]}",
-        "total_disaster_events": int(total_severe),
-        "total_aid_allocations": int(total_budget_slots),
-        "model_precision": f"{(total_model_hits / total_budget_slots):.1%}",
-        "rain_precision": f"{(total_rain_hits / total_budget_slots):.1%}",
-        "dsci_precision": f"{(total_dsci_hits / total_budget_slots):.1%}",
-        "random_precision": f"{(total_rand_hits / total_budget_slots):.1%}",
-        "model_lift_vs_rain": round(total_model_hits / max(1, total_rain_hits), 2),
+    "test_years": f"{test_years[0]}–{test_years[1]}",
+    "total_disaster_events": int(total_severe),
+    "total_aid_allocations": int(total_budget_slots),
+    "model_precision": f"{(total_model_hits / total_budget_slots):.1%}" if total_budget_slots > 0 else "0.0%",
+    "rain_precision": f"{(total_rain_hits / total_budget_slots):.1%}" if total_budget_slots > 0 else "0.0%",
+    "dsci_precision": f"{(total_dsci_hits / total_budget_slots):.1%}" if total_budget_slots > 0 else "0.0%",
+    "random_precision": f"{(total_rand_hits / total_budget_slots):.1%}" if total_budget_slots > 0 else "0.0%",
+    "model_lift_vs_rain": round(total_model_hits / max(1, total_rain_hits), 2),
+
     }
-    
     return res_df, summary
+    
+
 
 
 if __name__ == "__main__":
