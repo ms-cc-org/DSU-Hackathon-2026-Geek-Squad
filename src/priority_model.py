@@ -119,11 +119,17 @@ def allocate_relief_budget(
     crop: str = "CORN",
     year: int = 2020,
     relief_budget: float = 25_000_000,
-    top_k_pct: float = 0.15
+    top_k_pct: float = 0.15,
+    sort_by: str = "urgency"
 ) -> pd.DataFrame:
     """
     Ranks counties for a specific state, crop, and year, assigning Action Tiers
     and allocating the emergency state relief budget proportionally to Tier 1.
+    
+    sort_by options:
+    - 'urgency': Sort by Drought Urgency Score (Agronomic Heat + Drought + Soil stress)
+    - 'dollar_loss': Sort by Total Economic Dollar Loss ($)
+    - 'yield_loss': Sort by Yield Anomaly (% harvest deficit below trend)
     """
     # Filter to selected slice
     mask = (
@@ -140,12 +146,26 @@ def allocate_relief_budget(
     subset["urgency_score"] = compute_urgency_score(subset)
     subset = calculate_economic_losses(subset, crop=crop)
     
-    # Sort descending by Urgency Score (tie-breaker: estimated dollar loss)
-    subset.sort_values(
-        by=["urgency_score", "estimated_dollar_loss"],
-        ascending=[False, False],
-        inplace=True
-    )
+    # Sort according to selected policy criteria
+    if sort_by == "dollar_loss":
+        subset.sort_values(
+            by=["estimated_dollar_loss", "urgency_score"],
+            ascending=[False, False],
+            inplace=True
+        )
+    elif sort_by == "yield_loss":
+        subset.sort_values(
+            by=["yield_anomaly_pct", "urgency_score"],
+            ascending=[True, False],
+            inplace=True
+        )
+    else:  # default: agronomic urgency score
+        subset.sort_values(
+            by=["urgency_score", "estimated_dollar_loss"],
+            ascending=[False, False],
+            inplace=True
+        )
+
     subset.reset_index(drop=True, inplace=True)
     subset["rank"] = np.arange(1, len(subset) + 1)
     
@@ -165,25 +185,28 @@ def allocate_relief_budget(
     subset["action_tier"] = tiers
     
     # Allocate relief budget exclusively to Tier 1
+    subset["recommended_relief_usd"] = 0.0
     tier1_mask = subset["rank"] <= k_tier1
     tier1_loss = subset.loc[tier1_mask, "estimated_dollar_loss"].sum()
     
     if tier1_loss > 0:
         # Proportional to dollar loss
-        subset["recommended_relief_usd"] = np.where(
-            tier1_mask,
-            np.round(relief_budget * (subset["estimated_dollar_loss"] / tier1_loss), 2),
-            0.0
+        subset.loc[tier1_mask, "recommended_relief_usd"] = np.round(
+            relief_budget * (subset.loc[tier1_mask, "estimated_dollar_loss"] / tier1_loss), 2
         )
     else:
-        # Fallback: proportional to urgency score * harvested acres
+        # Fallback when no crop loss (e.g. bumper year): allocate by urgency score * acres
         weights = subset.loc[tier1_mask, "urgency_score"] * subset.loc[tier1_mask, "acres_harvested"].fillna(1000)
         sum_w = weights.sum()
-        subset["recommended_relief_usd"] = np.where(
-            tier1_mask,
-            np.round(relief_budget * (weights / sum_w), 2),
-            0.0
-        )
+        if sum_w > 0:
+            subset.loc[tier1_mask, "recommended_relief_usd"] = np.round(
+                relief_budget * (weights / sum_w), 2
+            )
+        else:
+            n_t1 = max(1, int(tier1_mask.sum()))
+            subset.loc[tier1_mask, "recommended_relief_usd"] = np.round(
+                relief_budget / n_t1, 2
+            )
         
     return subset
 
@@ -218,13 +241,32 @@ def evaluate_out_of_sample_validation(
     # Compute urgency score across dataset
     test_df["urgency_score"] = compute_urgency_score(test_df)
     
+    expected_cols = [
+        "year", "counties", "tier1_quota_k", "actual_severe_counties",
+        "random_expected_hits", "rain_deficit_hits", "pure_dsci_hits",
+        "model_urgency_hits"
+    ]
+    
+    if test_df.empty:
+        return pd.DataFrame(columns=expected_cols), {
+            "test_years": f"{test_years[0]}–{test_years[1]}",
+            "total_disaster_events": 0,
+            "total_aid_allocations": 0,
+            "model_precision": "0.0%",
+            "rain_precision": "0.0%",
+            "dsci_precision": "0.0%",
+            "random_precision": "0.0%",
+            "model_lift_vs_rain": 1.0,
+            "status": "insufficient_data"
+        }
+
     results = []
     for yr in sorted(test_df["year"].unique()):
         ydf = test_df[test_df["year"] == yr].copy()
-        if len(ydf) < 15:
+        if len(ydf) < 2:
             continue
             
-        k = max(1, int(len(ydf) * top_k_pct))
+        k = max(1, int(np.ceil(len(ydf) * top_k_pct)))
         ydf["is_severe"] = ydf["yield_anomaly_pct"] <= severe_threshold_pct
         n_severe = int(ydf["is_severe"].sum())
         
@@ -255,27 +297,57 @@ def evaluate_out_of_sample_validation(
         })
         
     res_df = pd.DataFrame(results)
-    
+    if res_df.empty:
+        res_df = pd.DataFrame(columns=expected_cols)
+
     # Summary Metrics across loss years
+    if "actual_severe_counties" not in res_df.columns or res_df.empty:
+        summary = {
+            "test_years": f"{test_years[0]}–{test_years[1]}",
+            "total_disaster_events": 0,
+            "total_aid_allocations": 0,
+            "model_precision": "0.0%",
+            "rain_precision": "0.0%",
+            "dsci_precision": "0.0%",
+            "random_precision": "0.0%",
+            "model_lift_vs_rain": 1.0,
+            "status": "insufficient_data"
+        }
+        return res_df, summary
+
     active_years = res_df[res_df["actual_severe_counties"] > 0]
-    total_budget_slots = active_years["tier1_quota_k"].sum()
-    total_severe = active_years["actual_severe_counties"].sum()
+    total_budget_slots = active_years["tier1_quota_k"].sum() if not active_years.empty else 0
+    total_severe = active_years["actual_severe_counties"].sum() if not active_years.empty else 0
     
-    total_model_hits = active_years["model_urgency_hits"].sum()
-    total_rain_hits = active_years["rain_deficit_hits"].sum()
-    total_dsci_hits = active_years["pure_dsci_hits"].sum()
-    total_rand_hits = active_years["random_expected_hits"].sum()
-    
-    summary = {
-        "test_years": f"{test_years[0]}–{test_years[1]}",
-        "total_disaster_events": int(total_severe),
-        "total_aid_allocations": int(total_budget_slots),
-        "model_precision": f"{(total_model_hits / total_budget_slots):.1%}",
-        "rain_precision": f"{(total_rain_hits / total_budget_slots):.1%}",
-        "dsci_precision": f"{(total_dsci_hits / total_budget_slots):.1%}",
-        "random_precision": f"{(total_rand_hits / total_budget_slots):.1%}",
-        "model_lift_vs_rain": round(total_model_hits / max(1, total_rain_hits), 2),
-    }
+    total_model_hits = active_years["model_urgency_hits"].sum() if not active_years.empty else 0
+    total_rain_hits = active_years["rain_deficit_hits"].sum() if not active_years.empty else 0
+    total_dsci_hits = active_years["pure_dsci_hits"].sum() if not active_years.empty else 0
+    total_rand_hits = active_years["random_expected_hits"].sum() if not active_years.empty else 0
+
+    if total_budget_slots > 0:
+        summary = {
+            "test_years": f"{test_years[0]}–{test_years[1]}",
+            "total_disaster_events": int(total_severe),
+            "total_aid_allocations": int(total_budget_slots),
+            "model_precision": f"{(total_model_hits / total_budget_slots):.1%}",
+            "rain_precision": f"{(total_rain_hits / total_budget_slots):.1%}",
+            "dsci_precision": f"{(total_dsci_hits / total_budget_slots):.1%}",
+            "random_precision": f"{(total_rand_hits / total_budget_slots):.1%}",
+            "model_lift_vs_rain": round(total_model_hits / max(1, total_rain_hits), 2),
+            "status": "ok"
+        }
+    else:
+        summary = {
+            "test_years": f"{test_years[0]}–{test_years[1]}",
+            "total_disaster_events": 0,
+            "total_aid_allocations": int(res_df["tier1_quota_k"].sum()),
+            "model_precision": "0.0%",
+            "rain_precision": "0.0%",
+            "dsci_precision": "0.0%",
+            "random_precision": "0.0%",
+            "model_lift_vs_rain": 1.0,
+            "status": "no_disasters_in_test_era"
+        }
     
     return res_df, summary
 

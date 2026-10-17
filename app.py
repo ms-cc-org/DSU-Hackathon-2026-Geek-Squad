@@ -4,7 +4,13 @@ import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
 
+import importlib
 from src.data_loader import load_master, load_counties
+import src.priority_model
+import src.report_card
+importlib.reload(src.priority_model)
+importlib.reload(src.report_card)
+
 from src.priority_model import (
     allocate_relief_budget,
     evaluate_out_of_sample_validation,
@@ -129,6 +135,19 @@ threshold_pct = st.sidebar.slider(
     help="Targeting threshold: percentage of counties classified into Tier 1 (Emergency Aid)."
 ) / 100.0
 
+sort_mode_map = {
+    "🚨 Drought Urgency (Agronomic & Soil Stress)": "urgency",
+    "💰 Total Economic Dollar Loss ($)": "dollar_loss",
+    "📉 Harvest Yield Deficit (% below trend)": "yield_loss",
+}
+selected_sort_label = st.sidebar.selectbox(
+    "Priority Ranking Strategy",
+    options=list(sort_mode_map.keys()),
+    index=0,
+    help="Rank by per-acre climate & soil stress intensity (Urgency Score), macro-economic dollar loss ($), or percentage harvest crash."
+)
+selected_sort = sort_mode_map[selected_sort_label]
+
 st.sidebar.markdown("---")
 st.sidebar.caption(
     "**Stakeholder**: State Drought Program Official\n"
@@ -159,6 +178,7 @@ with tab_ranking:
         year=selected_year,
         relief_budget=relief_budget,
         top_k_pct=threshold_pct,
+        sort_by=selected_sort,
     )
 
     if ranked_df.empty:
@@ -190,7 +210,7 @@ with tab_ranking:
 
         # 2. Ranking Table with Action Tiers
         st.subheader("📋 County Relief Action Ranking")
-        st.caption(f"Counties ranked by multi-variable Drought Urgency Score (Heat + Drought Duration − Soil Sponge Buffer). Emergency funding (${relief_budget_m}M) targeted to Tier 1.")
+        st.caption(f"Counties ranked by **{selected_sort_label}**. Emergency relief budget (${relief_budget_m}M) targeted proportionally across Tier 1 priority counties.")
 
         # Formatting table for display
         display_cols = [
@@ -330,76 +350,84 @@ with tab_validation:
         top_k_pct=threshold_pct,
     )
 
-    # 1. Summary Benchmark KPI Cards
-    b1, b2, b3, b4 = st.columns(4)
-    b1.metric("Test Period", val_summary["test_years"], "10 Unseen Seasons")
-    b2.metric("Disaster Events Analyzed", f"{val_summary['total_disaster_events']} counties", "Severe drops (≤-10%)")
-    b3.metric("Our Model Precision", val_summary["model_precision"], f"+{val_summary['model_lift_vs_rain']}x vs. Rain Alone")
-    b4.metric("Naive Rainfall Precision", val_summary["rain_precision"], "Rainfall Deficit alone")
-
-    st.markdown("---")
-
-    # 2. Scoreboard Comparison Chart
-    col_chart, col_table = st.columns([1.2, 1.0])
-
-    with col_chart:
-        st.subheader("📊 Targeting Accuracy: Model vs. Baselines")
-        comparison_df = pd.DataFrame({
-            "Strategy": [
-                "Proposed Model (Heat + Drought + Soil)",
-                "Pure Drought Monitor (DSCI alone)",
-                "Pure Rainfall Deficit (Precip alone)",
-                "Random County Allocation"
-            ],
-            "Precision (%)": [
-                float(val_summary["model_precision"].replace("%", "")),
-                float(val_summary["dsci_precision"].replace("%", "")),
-                float(val_summary["rain_precision"].replace("%", "")),
-                float(val_summary["random_precision"].replace("%", ""))
-            ],
-            "Color": ["#2a9d8f", "#e76f51", "#f4a261", "#adb5bd"]
-        })
-
-        fig_bar = px.bar(
-            comparison_df,
-            x="Strategy",
-            y="Precision (%)",
-            color="Strategy",
-            color_discrete_sequence=["#2a9d8f", "#e76f51", "#f4a261", "#6c757d"],
-            text="Precision (%)",
-            title=f"Hit Rate on Unseen Modern Disasters ({selected_state_label} {selected_crop})",
+    # 1. Check for sufficient reporting data
+    if val_summary.get("status") == "insufficient_data" or val_table.empty:
+        st.info(
+            f"ℹ️ **Limited Historical Data for {selected_state_label} {selected_crop} (2016–2025)**\n\n"
+            f"As specified in `data/data_dictionary.md`, NASS published limited or un-detrended yield surveys for this specific state-crop pair. "
+            f"To view the full 10-year out-of-sample benchmark across 90+ counties, please switch the sidebar to **Iowa** or **Nebraska** (**Corn** or **Soybeans**)."
         )
-        fig_bar.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-        fig_bar.update_layout(height=420, showlegend=False, yaxis=dict(range=[0, 30]))
-        st.plotly_chart(fig_bar, use_container_width=True)
+    else:
+        # 1. Summary Benchmark KPI Cards
+        b1, b2, b3, b4 = st.columns(4)
+        b1.metric("Test Period", val_summary["test_years"], "10 Unseen Seasons")
+        b2.metric("Disaster Events Analyzed", f"{val_summary['total_disaster_events']} counties", "Severe drops (≤-10%)")
+        b3.metric("Our Model Precision", val_summary["model_precision"], f"+{val_summary['model_lift_vs_rain']}x vs. Rain Alone")
+        b4.metric("Naive Rainfall Precision", val_summary["rain_precision"], "Rainfall Deficit alone")
 
-    with col_table:
-        st.subheader("📋 Unseen Test Season Scoreboard")
-        st.dataframe(
-            val_table[[
-                "year", "tier1_quota_k", "actual_severe_counties",
-                "model_urgency_hits", "rain_deficit_hits", "pure_dsci_hits"
-            ]].rename(columns={
-                "year": "Year",
-                "tier1_quota_k": "Relief Slots (K)",
-                "actual_severe_counties": "True Disasters",
-                "model_urgency_hits": "Our Model Hits",
-                "rain_deficit_hits": "Rain Alone Hits",
-                "pure_dsci_hits": "USDM Alone Hits",
-            }),
-            use_container_width=True,
-            height=420
-        )
+        st.markdown("---")
 
-    # 3. Agronomic Explanation
-    with st.expander("💡 Why does our model consistently beat pure rainfall deficit?"):
-        st.markdown(
-            """
-            1. **Rainfall timing is not captured by total volume**: A county might have near-normal cumulative rain because of May downpours, but suffer zero rain and 38°C heat during critical July pollination.
-            2. **The 'Soil Sponge' (Available Water Storage)**: Counties with deep, high-water-capacity soils (`aws_100cm_mm > 180mm`) can buffer dry spells for 2–3 weeks without severe yield drops. Pure rainfall metrics trigger false alarms for these buffered counties.
-            3. **Heat-Stress Multiplier**: Days over 35°C correlate with yield collapse at **-0.56**, far stronger than rainfall deficit (**+0.14**).
-            """
-        )
+        # 2. Scoreboard Comparison Chart
+        col_chart, col_table = st.columns([1.2, 1.0])
+
+        with col_chart:
+            st.subheader("📊 Targeting Accuracy: Model vs. Baselines")
+            comparison_df = pd.DataFrame({
+                "Strategy": [
+                    "Proposed Model (Heat + Drought + Soil)",
+                    "Pure Drought Monitor (DSCI alone)",
+                    "Pure Rainfall Deficit (Precip alone)",
+                    "Random County Allocation"
+                ],
+                "Precision (%)": [
+                    float(val_summary["model_precision"].replace("%", "")),
+                    float(val_summary["dsci_precision"].replace("%", "")),
+                    float(val_summary["rain_precision"].replace("%", "")),
+                    float(val_summary["random_precision"].replace("%", ""))
+                ],
+                "Color": ["#2a9d8f", "#e76f51", "#f4a261", "#adb5bd"]
+            })
+
+            fig_bar = px.bar(
+                comparison_df,
+                x="Strategy",
+                y="Precision (%)",
+                color="Strategy",
+                color_discrete_sequence=["#2a9d8f", "#e76f51", "#f4a261", "#6c757d"],
+                text="Precision (%)",
+                title=f"Hit Rate on Unseen Modern Disasters ({selected_state_label} {selected_crop})",
+            )
+            fig_bar.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+            fig_bar.update_layout(height=420, showlegend=False, yaxis=dict(range=[0, 30]))
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+        with col_table:
+            st.subheader("📋 Unseen Test Season Scoreboard")
+            st.dataframe(
+                val_table[[
+                    "year", "tier1_quota_k", "actual_severe_counties",
+                    "model_urgency_hits", "rain_deficit_hits", "pure_dsci_hits"
+                ]].rename(columns={
+                    "year": "Year",
+                    "tier1_quota_k": "Relief Slots (K)",
+                    "actual_severe_counties": "True Disasters",
+                    "model_urgency_hits": "Our Model Hits",
+                    "rain_deficit_hits": "Rain Alone Hits",
+                    "pure_dsci_hits": "USDM Alone Hits",
+                }),
+                use_container_width=True,
+                height=420
+            )
+
+        # 3. Agronomic Explanation
+        with st.expander("💡 Why does our model consistently beat pure rainfall deficit?"):
+            st.markdown(
+                """
+                1. **Rainfall timing is not captured by total volume**: A county might have near-normal cumulative rain because of May downpours, but suffer zero rain and 38°C heat during critical July pollination.
+                2. **The 'Soil Sponge' (Available Water Storage)**: Counties with deep, high-water-capacity soils (`aws_100cm_mm > 180mm`) can buffer dry spells for 2–3 weeks without severe yield drops. Pure rainfall metrics trigger false alarms for these buffered counties.
+                3. **Heat-Stress Multiplier**: Days over 35°C correlate with yield collapse at **-0.56**, far stronger than rainfall deficit (**+0.14**).
+                """
+            )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -409,10 +437,20 @@ with tab_explorer:
     st.subheader("🔍 County Agricultural Report Card & Historical Ledger")
     st.write("Examine any specific county's soil buffering capacity, 26-year drought frequency, and historical harvest resilience.")
 
-    # County Selector
-    state_counties = sorted(df[df["state_alpha"] == selected_state]["county_name"].unique())
+    # County Selector: only list counties that grow and report the selected crop
+    state_counties = sorted(df[
+        (df["state_alpha"] == selected_state) &
+        (df["crop"] == selected_crop) &
+        (df["yield_status"] == "reported")
+    ]["county_name"].unique())
+    if not state_counties:
+        state_counties = sorted(df[df["state_alpha"] == selected_state]["county_name"].unique())
+
     selected_county_name = st.selectbox("Select County to Inspect", options=state_counties, index=0)
-    selected_fips = df[(df["state_alpha"] == selected_state) & (df["county_name"] == selected_county_name)]["fips"].iloc[0]
+    selected_fips = df[
+        (df["state_alpha"] == selected_state) &
+        (df["county_name"] == selected_county_name)
+    ]["fips"].iloc[0]
 
     # Generate Report Card
     card = get_county_report_card(df, fips=selected_fips, crop=selected_crop)
