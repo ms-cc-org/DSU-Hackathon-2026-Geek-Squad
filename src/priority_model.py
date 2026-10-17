@@ -185,25 +185,28 @@ def allocate_relief_budget(
     subset["action_tier"] = tiers
     
     # Allocate relief budget exclusively to Tier 1
+    subset["recommended_relief_usd"] = 0.0
     tier1_mask = subset["rank"] <= k_tier1
     tier1_loss = subset.loc[tier1_mask, "estimated_dollar_loss"].sum()
     
     if tier1_loss > 0:
         # Proportional to dollar loss
-        subset["recommended_relief_usd"] = np.where(
-            tier1_mask,
-            np.round(relief_budget * (subset["estimated_dollar_loss"] / tier1_loss), 2),
-            0.0
+        subset.loc[tier1_mask, "recommended_relief_usd"] = np.round(
+            relief_budget * (subset.loc[tier1_mask, "estimated_dollar_loss"] / tier1_loss), 2
         )
     else:
-        # Fallback: proportional to urgency score * harvested acres
+        # Fallback when no crop loss (e.g. bumper year): allocate by urgency score * acres
         weights = subset.loc[tier1_mask, "urgency_score"] * subset.loc[tier1_mask, "acres_harvested"].fillna(1000)
         sum_w = weights.sum()
-        subset["recommended_relief_usd"] = np.where(
-            tier1_mask,
-            np.round(relief_budget * (weights / sum_w), 2),
-            0.0
-        )
+        if sum_w > 0:
+            subset.loc[tier1_mask, "recommended_relief_usd"] = np.round(
+                relief_budget * (weights / sum_w), 2
+            )
+        else:
+            n_t1 = max(1, int(tier1_mask.sum()))
+            subset.loc[tier1_mask, "recommended_relief_usd"] = np.round(
+                relief_budget / n_t1, 2
+            )
         
     return subset
 
