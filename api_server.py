@@ -346,6 +346,8 @@ def route(path, q):
 
 # Origins allowed to call the API from a browser (GitHub Pages site). Comma-separated; "*" allows any.
 CORS_ORIGINS = {o.strip().rstrip("/") for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()}
+# Hosted API has no frontend build: send visitors to the GitHub Pages dashboard instead (set in render.yaml)
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "")
 
 MAX_QUESTION_CHARS = 1000
 MAX_HISTORY_TURNS = 10
@@ -379,6 +381,8 @@ class Handler(SimpleHTTPRequestHandler):
         if not url.path.startswith("/api/"):
             # Static frontend build (single-page app: unknown paths -> index.html)
             if not DIST_DIR.exists():
+                if FRONTEND_URL:
+                    return self._send(302, "text/plain", b"", {"Location": FRONTEND_URL})
                 return self._send(404, "text/plain", b"frontend/dist not built - run `npm run build` in frontend/")
             if not (DIST_DIR / url.path.lstrip("/")).is_file():
                 self.path = "/index.html"

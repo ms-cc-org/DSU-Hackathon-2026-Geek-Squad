@@ -15,5 +15,7 @@ services:
         value: 0.0.0.0
       - key: CORS_ORIGINS
         value: https://ms-cc-org.github.io
+      - key: FRONTEND_URL     # opening the API's own address redirects to the dashboard
+        value: https://ms-cc-org.github.io/DSU-Hackathon-2026-Geek-Squad/
       - key: ANTHROPIC_API_KEY
         sync: false        # paste the key in the Render dashboard; never commit it
