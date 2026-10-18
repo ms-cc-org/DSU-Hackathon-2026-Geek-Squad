@@ -28,18 +28,11 @@ COMMODITY_PRICES = {
 }
 
 
-def compute_urgency_score(df: pd.DataFrame) -> pd.Series:
+def urgency_components(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Computes an agronomic Drought Urgency Score on a 1.0 to 10.0 scale.
-    
-    Synthesizes:
-    - Atmospheric Hazard:
-      * Drought Severity: mean_dsci (0 to 500)
-      * Drought Persistence: weeks_in_d2_plus (weeks in D2-D4)
-      * Heat Shock: extreme_heat_days (days >= 35°C / 95°F)
-      * Rainfall Deficit: negative precip_anomaly_pct
-    - Soil Buffer (Mitigator):
-      * Soil Sponge Capacity: aws_100cm_mm (Plant-available water storage)
+    Intermediate terms of the Drought Urgency Score, one row per input row.
+    compute_urgency_score() is built from these, so the frontend can show
+    exactly how each county's score was reached.
     """
     # 1. Normalize hazard components (0 to 1)
     dsci_norm = (df["mean_dsci"].fillna(0) / 500.0).clip(0, 1)
@@ -68,7 +61,34 @@ def compute_urgency_score(df: pd.DataFrame) -> pd.Series:
     
     # Soil buffer mitigates the hazard (up to 25% reduction in urgency)
     net_urgency = hazard_score * (1.0 - 0.25 * soil_buffer)
-    
+
+    return pd.DataFrame({
+        "heat_norm": heat_norm,
+        "d2_norm": d2_norm,
+        "dsci_norm": dsci_norm,
+        "precip_deficit_norm": precip_deficit,
+        "soil_buffer_norm": soil_buffer,
+        "soil_aws_p95_mm": max_aws,
+        "hazard_score": hazard_score,
+        "net_urgency": net_urgency,
+    }, index=df.index)
+
+
+def compute_urgency_score(df: pd.DataFrame) -> pd.Series:
+    """
+    Computes an agronomic Drought Urgency Score on a 1.0 to 10.0 scale.
+
+    Synthesizes:
+    - Atmospheric Hazard:
+      * Drought Severity: mean_dsci (0 to 500)
+      * Drought Persistence: weeks_in_d2_plus (weeks in D2-D4)
+      * Heat Shock: extreme_heat_days (days >= 35°C / 95°F)
+      * Rainfall Deficit: negative precip_anomaly_pct
+    - Soil Buffer (Mitigator):
+      * Soil Sponge Capacity: aws_100cm_mm (Plant-available water storage)
+    """
+    net_urgency = urgency_components(df)["net_urgency"]
+
     # Scale from 1.0 to 10.0
     score = 1.0 + (net_urgency * 9.0).clip(0, 9.0)
     return score.round(1)

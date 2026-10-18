@@ -1,7 +1,7 @@
-# 🌾 State Drought Assistance & Priority Targeting System
+# 🌾 State Drought Assistance & Priority Targeting System | update readme as we go 
 ## Team Notes & Project Briefing Sheet (`readmeforGroup.md`)
 **DSU Hackathon 2026 | Team Geek Squad**  
-*Last Updated: Saturday, October 17, 2026*
+*Last Updated: Saturday, October 17, 2026. All numbers below were regenerated from the current `src/priority_model.py` (Iowa corn, $25M fund, 15% quota unless stated).*
 
 ---
 
@@ -12,7 +12,7 @@
 4. [The Financial & Economic Model ($)](#4-the-financial--economic-model)
 5. [Out-of-Sample Validation: The 10-Year "Time Machine" Proof](#5-out-of-sample-validation-the-10-year-time-machine-proof)
 6. [Codebase Architecture & File Guide](#6-codebase-architecture--file-guide)
-7. [How to Run the Code & Streamlit App Locally](#7-how-to-run-the-code--streamlit-app-locally)
+7. [How to Run the App (React Frontend + Streamlit)](#7-how-to-run-the-app-react-frontend--streamlit)
 8. [Team Work-Split & Phased Deliverables (6:00 PM Checkpoint & Sunday)](#8-team-work-split--phased-deliverables)
 9. [Judge Q&A Cheat Sheet (Bulletproof Answers)](#9-judge-qa-cheat-sheet)
 10. [Data Sources & Official Federal Citations](#10-data-sources--official-federal-citations)
@@ -23,8 +23,8 @@
 
 * **The Problem**: When extreme summer droughts strike agricultural states (Iowa, Nebraska), farmers face catastrophic financial ruin. Federal USDA disaster relief checks (ERP/WHIP+) take **12 to 18 months** to process and arrive. State Departments of Agriculture have emergency funds (**$25M–$50M**) to issue immediate bridge relief, but relief decisions are bottlenecked by delayed post-harvest surveys and subjective political lobbying.
 * **The Decision**: Which counties receive emergency state funding first, and what transparent, data-driven threshold triggers that assistance in August before harvest surveys are completed?
-* **Our Solution**: An interactive **Streamlit Dashboard** powered by a **Drought Urgency Index (1 to 10)** that integrates atmospheric heat, drought persistence, and the underground "soil sponge." It automatically sorts counties into Action Tiers (` Tier 1 Immediate Relief`, `️ Tier 2 Monitoring`, ` Tier 3 Resilient`) and rations the emergency fund proportionally to the hardest-hit farming communities.
-* **The Empirical Proof**: Trained strictly on **2000–2015** data and tested blind on **10 unseen modern seasons (2016–2025)**. It caught severe yield crashes with **20.4% precision**, outperforming pure rainfall deficit (16.5%) and random allocation (8.8%).
+* **Our Solution**: An interactive **React dashboard** (backed by a Python API; a Streamlit version is kept as a backup) powered by a **Drought Urgency Index (1 to 10)** that integrates atmospheric heat, drought persistence, and the underground "soil sponge." It automatically sorts counties into Action Tiers (` Tier 1 Immediate Relief`, `️ Tier 2 Monitoring`, ` Tier 3 Resilient`) and rations the emergency fund proportionally to the hardest-hit farming communities.
+* **The Empirical Proof**: Trained strictly on **2000–2015** data and tested blind on **10 unseen modern seasons (2016–2025)**. It caught severe yield crashes with **20.7% precision**, outperforming the drought monitor alone (18.0%), pure rainfall deficit (15.3%) and random allocation (8.8%). That is a **1.35× lift over rainfall** in Iowa corn (Nebraska corn: **23.6% vs 17.0%, 1.39×**).
 
 ---
 
@@ -36,8 +36,8 @@ Every judge and mentor will evaluate our project against these four exact questi
 |---|---|---|
 | **Q1** | **Who is your user?** | A **State Drought Program Administrator** (e.g., Iowa Department of Agriculture & Land Stewardship or Nebraska Department of Natural Resources). |
 | **Q2** | **What do they decide?** | **Which counties receive emergency drought relief checks first**, and how much aid to disburse from a **$25M state relief fund** before post-harvest survey numbers are published. |
-| **Q3** | **What evidence did you use?** | A multi-layered synthesis of **26 years of USDA NASS yields, NOAA ACIS daily temperatures, USDM weekly drought indices, and NRCS SSURGO soil hydrology**. We prove that rainfall alone is misleading (0.14 correlation with yield loss) and replace it with **Extreme Heat Days (≥35°C, -0.56 corr)**, **Drought Duration (weeks in D2+, -0.51 corr)**, and the **Soil Sponge (Available Water Storage `aws_100cm_mm`)**. |
-| **Q4** | **How do you know it works?** | We ran an **out-of-sample 10-year blind test**. We calibrated our model on **2000–2015**, locked the rules, and tested it on unseen years **2016–2025**. In high-stress modern seasons (2020, 2022, 2023), our model caught significantly more real harvest disasters than rainfall maps or random aid allocation. |
+| **Q3** | **What evidence did you use?** | A multi-layered synthesis of **26 years of USDA NASS yields, NOAA ACIS daily temperatures, USDM weekly drought indices, and NRCS SSURGO soil hydrology**. We prove that rainfall alone is misleading (+0.13 correlation with yield anomaly) and replace it with **Extreme Heat Days (≥35°C, −0.52 corr)**, **Drought Duration (weeks in D2+, −0.37 corr)**, and the **Soil Sponge (Available Water Storage `aws_100cm_mm`)**. |
+| **Q4** | **How do you know it works?** | We ran an **out-of-sample 10-year blind test**. We calibrated our model on **2000–2015**, locked the rules, and tested it on unseen years **2016–2025**. Across the test years our model scored **23 hits vs 17 for rainfall** (20.7% vs 15.3% precision). In the high-stress seasons (2020, 2022, 2023) it caught **20 disasters vs 15 for rainfall maps**. |
 
 ---
 
@@ -45,10 +45,12 @@ Every judge and mentor will evaluate our project against these four exact questi
 
 ### The "Rain Fallacy"
 Most people assume: *Less Rain = Dead Crops*. 
-In our dataset for Iowa Corn:
-* **Precipitation Deficit (`precip_anomaly_pct`) correlation with yield collapse: ONLY +0.14** (very weak).
-* **Extreme Heat Days (`extreme_heat_days` ≥35°C / 95°F): -0.56** (almost 4x stronger!).
-* **Weeks in Severe Drought (`weeks_in_d2_plus`): -0.51**.
+In our dataset for Iowa Corn (Pearson r with `yield_anomaly_pct`, all 2,470 reported county-years 2000–2025; shown live on the Model Validation page):
+* **Precipitation anomaly (`precip_anomaly_pct`): ONLY +0.13** (very weak).
+* **Extreme Heat Days (`extreme_heat_days` ≥35°C / 95°F): −0.52** (about 4x stronger!).
+* **Weeks in Severe Drought (`weeks_in_d2_plus`): −0.37**.
+* **Drought severity (`mean_dsci`): −0.36**.
+* **Soil sponge (`aws_100cm_mm`) on its own: ≈ 0.00**. It is a *modifier*, not a driver, which is why the model only uses it to discount hazard (by up to 25%).
 
 ### Why Rainfall Alone is Misleading:
 1. **Timing (Pollination Shock)**: 4 inches of rain in May doesn't save a crop if July pollination experiences 95°F+ heatwaves with zero rain. High heat sterilizes corn pollen, causing kernel abort regardless of early spring moisture.
@@ -83,16 +85,18 @@ The raw dataset provides physical units (harvested acres, bushels per acre). We 
    $$\text{Estimated Dollar Loss (\$)} = \text{Bushels Lost} \times \text{Price per Bushel}$$
 
 > **Real Example (Iowa 2020 Drought)**:
-> * Statewide Corn Loss: **12,322,800 harvested acres** suffered **$1,053,430,036** (Over **$1.05 Billion**) in lost corn revenue.
-> * **Tama County, IA**: 148,200 acres $\times$ 32.4% deficit = **$42.6 Million** in lost farm revenue.
-> * **Carroll County, IA**: 178,800 acres $\times$ 24.8% deficit = **$40.3 Million** in lost farm revenue.
+> * Statewide Corn Loss: **12,322,800 harvested acres** suffered **$1,104,401,933** (Over **$1.10 Billion**) in lost corn revenue.
+> * **Carroll County, IA**: 178,800 acres, yield −24.8% vs trend = **$42.2 Million** lost. Urgency rank #3 → relief check **$3,253,007** (the largest).
+> * **Guthrie County, IA**: 104,300 acres, yield −19.7% = **$18.4 Million** lost. Urgency rank #1 (score 4.8) → relief check **$1,420,327**.
+> * **Tama County, IA**: 148,200 acres, yield −32.4% = **$44.7 Million** lost, but urgency score only 1.5 (rank #58), so **no drought relief**. Its loss was not drought-driven: Tama was in the path of the August 2020 derecho windstorm. See the Q&A below.
 
 ### How Relief Money is Allocated
-* **Budget Size**: State Emergency Agricultural Relief Fund default is **$25,000,000** (adjustable via sidebar slider from $5M to $100M).
+* **Budget Size**: State Emergency Agricultural Relief Fund default is **$25,000,000** (adjustable via the Emergency relief fund slider from $5M to $100M).
 * **The Policy Rule**: Funds are **never diluted evenly** across all 99 counties (which gives an ineffective ~$250k check). Funds are **100% targeted to Tier 1 Priority Counties** (top 15% most urgent).
 * **Payout Calculation**:
   $$\text{County Relief Check (\$)} = \$25,000,000 \times \left(\frac{\text{County Dollar Loss}}{\sum_{\text{Tier 1}} \text{Total Tier 1 Loss}}\right)$$
-  * Result: Each Tier 1 county receives **$1.5M to $3.2M in immediate stabilization funds**.
+  * Result (2020): 15 Tier 1 counties lost **$324.4M** combined. The $25M fund covers **7.7%** of that, with checks from **$249,534 (Adair) to $3,253,007 (Carroll)**, averaging **$1,666,667**.
+  * Widening the quota spreads the money thinner: at 30%, 29 counties average $862K. The Relief Allocation page has a quota simulator showing every option.
 
 ---
 
@@ -104,28 +108,31 @@ To satisfy **Rubric C3 (Data & Evidence)** and **C5 (Innovation)**, we evaluated
 * **Holdout Test Window (2016–2025)**: 10 modern seasons evaluated completely blind.
 
 ### The Scoreboard on Unseen Modern Disasters (2016–2025):
-Tested on Iowa Corn with budget set to top 15% quota ($K \approx 13\text{--}14$ counties):
+Tested on Iowa Corn with Tier 1 = top 15% of counties ($K = \lceil 0.15 \times \text{counties} \rceil$, 11–15 per year). A *hit* = a picked county whose yield came in ≥10% below trend:
 
 ```
  year  counties  tier1_quota_k  actual_severe_counties  rain_deficit_hits  pure_dsci_hits  model_urgency_hits
- 2016        99             14                       0                  0               0                   0
- 2017        95             14                       2                  2               2                   2
- 2018        93             13                       6                  0               0                   0
- 2019        88             13                       1                  0               1                   1
- 2020        95             14                      33                  9              10                  10
- 2021        84             12                       1                  0               0                   0
- 2022        97             14                       8                  3               2                   4
- 2023        87             13                       8                  3               3                   4
- 2024        73             10                       3                  0               0                   0
- 2025        79             11                       0                  0               0                   0
+ 2016        99             15                       0                  0               0                   0
+ 2017        95             15                       2                  2               2                   2
+ 2018        93             14                       6                  0               0                   0
+ 2019        88             14                       1                  0               1                   1
+ 2020        95             15                      33                  9              11                  11
+ 2021        84             13                       1                  0               0                   0
+ 2022        97             15                       8                  3               2                   4
+ 2023        87             14                       8                  3               4                   5
+ 2024        73             11                       3                  0               0                   0
+ 2025        79             12                       0                  0               0                   0
 ```
 
 ### Benchmark Summary Across All Test Years:
-* **Random County Guessing**: **8.8% Precision** (Wasteful, misses 9 out of 10 disasters).
-* **Naive Rainfall Deficit Alone**: **16.5% Precision** (17 hits). Tricked by deep soil sponges and misses heatwaves.
-* **Pure Drought Monitor Category (DSCI)**: **17.5% Precision** (18 hits).
-* **Our Urgency Model (Heat + Drought + Soil)**: **20.4% Precision** (**20 hits — Top Performer, 1.24x lift over rain**).
-  * In the 2022 and 2023 droughts, our model hit **4 out of 8 severe disaster counties**, doubling pure drought category accuracy.
+Precision = hits ÷ relief slots, counted over years with at least one disaster (**111 slots, 62 disaster counties**):
+* **Random County Guessing**: **8.8% Precision** (9.7 expected hits). Wasteful: misses 9 out of 10 disasters.
+* **Naive Rainfall Deficit Alone**: **15.3% Precision** (17 hits). Tricked by deep soil sponges and misses heatwaves.
+* **Pure Drought Monitor Category (DSCI)**: **18.0% Precision** (20 hits).
+* **Our Urgency Model (Heat + Drought + Soil)**: **20.7% Precision** (**23 hits, top performer, 1.35x lift over rain**).
+  * 2022 drought: our model hit **4 of 8** severe counties, double the drought monitor's 2. 2023: **5 of 8**, vs 4 for the drought monitor and 3 for rainfall.
+  * Nebraska corn, same test: **23.6%** (model) vs 17.9% (DSCI) vs 17.0% (rain) vs 14.1% (random), a 1.39x lift.
+* ⚠️ These numbers move if anyone changes weights in `priority_model.py` or the quota slider. The Model Validation page always shows the live values, so read numbers off the app before presenting.
 
 ---
 
@@ -133,7 +140,13 @@ Tested on Iowa Corn with budget set to top 15% quota ($K \approx 13\text{--}14$ 
 
 ```
 DSU-Hackathon-2026-Geek-Squad/
-├── app.py                       # Full interactive Streamlit Dashboard (3 tabs)
+├── api_server.py                # JSON API for the React app (stdlib only); also serves frontend/dist
+├── frontend/                    # React + Vite + Tailwind dashboard (the demo UI)
+│   └── src/
+│       ├── App.jsx              # Shared controls: state, crop, year, budget, quota, sort, selected county
+│       ├── lib/api.js           # fetch helper; every number comes from /api/*
+│       └── components/          # Ranking & map, Relief Allocation, Model Validation, County Report Card
+├── app.py                       # Streamlit version of the dashboard (backup; same model)
 ├── requirements.txt             # Dependencies (streamlit, plotly, pandas, scikit-learn)
 ├── readmeforGroup.md            # THIS FILE: Master briefing & cheat sheet
 ├── src/
@@ -149,7 +162,7 @@ DSU-Hackathon-2026-Geek-Squad/
 
 ---
 
-## 7. How to Run the Code & Streamlit App Locally
+## 7. How to Run the App (React Frontend + Streamlit)
 
 ### 1. Activate Environment & Run the Model Standalone:
 ```bash
@@ -168,6 +181,19 @@ python src/report_card.py
 streamlit run app.py
 ```
 * Open your browser to: `http://localhost:8501`
+
+### 3. Launch the React Frontend (demo UI):
+The React app in `frontend/` gets every number from `api_server.py`, which calls the same
+`priority_model.py` / `report_card.py` functions as Streamlit. Nothing is hard-coded in the UI.
+```bash
+# One-time: build the UI
+cd frontend && npm install && npm run build && cd ..
+
+# Serve API + built UI together
+python api_server.py
+```
+* Open your browser to: `http://localhost:8000`
+* Editing the UI? Keep `python api_server.py` running and run `npm run dev` in `frontend/` (http://localhost:5173, `/api` is proxied).
 
 ---
 
@@ -188,24 +214,25 @@ streamlit run app.py
   * Confirm CSV exports cleanly for any selected year and state.
 
 #### 👤 Person 2: Streamlit Dashboard & UI Lead
-* **Primary Files**: `app.py`
+* **Primary Files**: `frontend/src/` (React UI), `api_server.py`; `app.py` (Streamlit backup)
 * **Tasks**:
-  * Test sidebar controls (State, Year, Budget slider, Top % quota).
-  * Ensure Tab 1 (Priority Ranking), Tab 2 (Validation), and Tab 3 (Report Card) render smoothly.
-  * Verify both the Scatter Plot and Geographic Choropleth Map views work cleanly.
+  * Test the controls (State, Crop, Year, Budget slider, Tier 1 quota, Rank by).
+  * Ensure all four pages (Priority Ranking & Map, Relief Allocation, Model Validation, County Report Card) render smoothly.
+  * Verify the County Map layers, the Urgency vs Harvest Loss scatter, the "How this score & check were computed" popup, and the CSV export.
+  * After any UI change, run `npm run build` in `frontend/` so `python api_server.py` serves the latest version.
 
 #### 👤 Person 3: Validation & Visual Proof Specialist
-* **Primary Files**: `src/priority_model.py` (Validation functions) & Tab 2 in `app.py`
+* **Primary Files**: `src/priority_model.py` (Validation functions) & the Model Validation page
 * **Tasks**:
   * Be ready to walk judges through the out-of-sample scoreboard table (2016–2025).
-  * Memorize the benchmark metrics: **20.4% precision vs 16.5% for rainfall**.
+  * Memorize the benchmark metrics: **20.7% precision vs 15.3% for rainfall (1.35x), 23 vs 17 hits**.
   * Highlight the 2020, 2022, and 2023 case study years during the demo.
 
 #### 👤 Person 4: Pitch Deck, Demo & Narrative Lead
 * **Primary Files**: Slide Deck & Pitch Script
 * **Tasks**:
   * Build the 6 pitch slides answering the 4 mandatory evaluation questions.
-  * Rehearse the live 5-minute presentation and 2-minute live demo of `app.py`.
+  * Rehearse the live 5-minute presentation and 2-minute live demo (React app at `http://localhost:8000`; Streamlit as backup).
   * Lead team responses during the 3-minute judge Q&A session.
 
 ---
@@ -220,6 +247,12 @@ streamlit run app.py
 
 ### Q: "How is this helpful if the data is historical?"
 > **Answer**: *"All inputs in our model—weekly USDM drought classifications, NOAA daily heat spikes, and SSURGO soil storage—are available in real time during the growing season. By validating that this formula works across 10 unseen modern years, state officials can run this dashboard on August 15 and issue relief declarations months before harvest surveys are published."*
+
+### Q: "Tama County lost $44.7M in 2020. Why doesn't it get any relief?"
+> **Answer**: *"Because this fund is for drought, and Tama's loss wasn't drought-driven. Its urgency score is only 1.5: few heat days and little time in severe drought. The August 2020 derecho windstorm flattened crops across that part of Iowa. A drought fund that paid out on any loss would mostly be paying for wind damage, which crop insurance and federal disaster programs cover. Our score separates the two."*
+
+### Q: "Can I check any number on the screen?"
+> **Answer**: *"Yes. Click any county, then 'How this score & check were computed'. It shows every input, weight and step for the score, the dollar loss and the relief check. The same values are in the exported CSV."*
 
 ### Q: "Where did the dollar loss figures come from?"
 > **Answer**: *"The raw dataset gives physical units: harvested acres and bushels per acre. We converted those physical losses into real dollars by calculating each county's bushel deficit against its 26-year trend line and multiplying by the official USDA Marketing Year Average price ($4.75/bu for corn)."*
