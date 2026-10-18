@@ -27,8 +27,8 @@ export default function Landing({ onEnter }) {
           Drought Relief Targeting
         </h1>
         <p className="font-body-lead text-body-lead text-on-surface mt-3 max-w-lg">
-          Which Iowa and Nebraska counties should get emergency drought money first, decided in August, before harvest data
-          exists.
+          Which counties in Iowa, Nebraska, California and Delaware should get emergency drought money first, decided in
+          August, before harvest data exists.
         </p>
         <p className="font-body-sm text-body-sm text-text-muted mt-2 max-w-lg">
           Built on 26 seasons of USDA, NOAA, Drought Monitor and soil survey data, and tested blind on 2016–2025.
