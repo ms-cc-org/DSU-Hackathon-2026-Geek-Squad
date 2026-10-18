@@ -134,14 +134,13 @@ function PageNav({ page, onNavigate }) {
   const btn =
     'flex items-center gap-1.5 px-4 py-2 rounded-lg font-headline-sm text-body-sm font-bold transition-all';
   return (
-    <div className="max-w-7xl mx-auto px-gutter pb-space-lg flex justify-between gap-space-md">
-      {prev ? (
+    // First page has no Back button, so Next sits centered under the content.
+    <div className={`max-w-7xl mx-auto px-gutter pb-space-lg flex gap-space-md ${prev ? 'justify-between' : 'justify-center'}`}>
+      {prev && (
         <button onClick={() => onNavigate(prev.id)} className={`${btn} bg-surface-container-high text-on-surface hover:bg-surface-bright`}>
           <Icon name="arrow_back" className="text-[18px]" />
           {prev.label}
         </button>
-      ) : (
-        <span />
       )}
       {next && (
         <button onClick={() => onNavigate(next.id)} className={`${btn} bg-primary-container text-on-primary-container hover:bg-accent-hover`}>
