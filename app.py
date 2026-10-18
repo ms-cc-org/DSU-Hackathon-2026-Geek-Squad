@@ -537,3 +537,28 @@ with tab_explorer:
             )
     else:
         st.info("No report card available for this selection.")
+
+st.markdown(
+    """
+    <div style="
+        display: flex;
+        justify-content: flex-end;
+        width: 100%;
+        margin-top: 40px;
+    ">
+        <div style="
+            background-color: #1e1e1e;  /* darker charcoal grey */
+            color: #ffffff;
+            padding: 12px 18px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 12px rgba(0,0,0,0.4);
+            font-size: 14px;
+            display: inline-block;
+        ">
+            <strong>Geek Squad — DSU Hackathon 2026</strong><br>
+            Jeremiah D, Juwan J, Joshua P, Carelle N, Karim S
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
