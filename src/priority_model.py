@@ -12,7 +12,7 @@ from pathlib import Path
 import sys
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import Ridge
+
 
 _ROOT = Path(__file__).resolve().parents[1]
 if str(_ROOT) not in sys.path:
@@ -49,9 +49,10 @@ def urgency_components(df: pd.DataFrame) -> pd.DataFrame:
         max_aws = 220.0
     soil_buffer = (df["aws_100cm_mm"].fillna(150.0) / max_aws).clip(0, 1)
     
-    # 3. Weighted Composite Index
-    # Weights reflect empirical correlations with yield collapse:
-    # Heat (0.30) + Severe Drought Weeks (0.30) + DSCI (0.20) + Rain Deficit (0.10) - Soil Cushion (0.15)
+    # 3. Weighted hazard (0 to 1). The weights add up to 1.0 and follow how strongly each
+    # input tracks yield loss (Iowa corn, 2000-2025): heat days r = -0.52, weeks in severe
+    # drought -0.37, DSCI -0.36, rainfall only +0.13. Weights are set by hand, not fitted.
+    #   Heat days (0.30) + Weeks in D2+ (0.30) + DSCI (0.25) + Rain shortfall (0.15)
     hazard_score = (
         0.30 * heat_norm +
         0.30 * d2_norm +
@@ -59,7 +60,8 @@ def urgency_components(df: pd.DataFrame) -> pd.DataFrame:
         0.15 * precip_deficit
     )
     
-    # Soil buffer mitigates the hazard (up to 25% reduction in urgency)
+    # 4. Soil discount. Soil water storage barely tracks yield loss on its own (r ~ 0), but deep
+    # soil carries a crop through a dry spell, so it lowers the hazard (by up to 25%) instead of adding a weight.
     net_urgency = hazard_score * (1.0 - 0.25 * soil_buffer)
 
     return pd.DataFrame({
