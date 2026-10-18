@@ -1,68 +1,50 @@
 import Icon from './Icon.jsx';
 
 // Loading / empty / error states, mirroring the st.warning / st.info messages in app.py.
-export function StatusPanel({ title, detail, tone = 'info' }) {
+export function StatusPanel({ title, detail, tone = 'info', inline = false }) {
   const toneClass = tone === 'error' ? 'text-error' : tone === 'warning' ? 'text-risk-moderate' : 'text-primary-fixed';
   const icon = tone === 'error' ? 'error' : tone === 'warning' ? 'warning' : 'info';
+  const box = (
+    <div className="w-full bg-surface-container-low rounded-xl p-space-md flex items-start gap-space-md border border-surface-container-highest">
+      <Icon name={icon} className={`text-[22px] ${toneClass}`} />
+      <div>
+        <div className={`font-headline-sm text-title-md ${toneClass}`}>{title}</div>
+        {detail && <p className="font-body-sm text-body-sm text-text-muted mt-1 max-w-3xl">{detail}</p>}
+      </div>
+    </div>
+  );
+  return inline ? box : <div className="w-full max-w-7xl mx-auto px-gutter py-space-md">{box}</div>;
+}
+
+// One numbered step of the story. `takeaway` is the sentence a judge should leave with.
+export function Section({ id, step, title, takeaway, children, right }) {
   return (
-    <div className="w-full px-gutter py-space-md">
-      <div className="w-full bg-surface-container-low rounded-xl p-space-lg flex items-start gap-space-md border border-surface-container-highest">
-        <Icon name={icon} className={`text-[22px] ${toneClass}`} />
+    <section id={id} className="w-full max-w-7xl mx-auto px-gutter py-space-lg scroll-mt-28">
+      <div className="flex flex-wrap items-end justify-between gap-space-md pb-space-md">
         <div>
-          <div className={`font-headline-sm text-title-md ${toneClass}`}>{title}</div>
-          {detail && <p className="font-body-sm text-body-sm text-text-muted mt-1 max-w-3xl">{detail}</p>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export function Panel({ title, subtitle, right, children, id, className = '' }) {
-  return (
-    <div className={`w-full px-gutter py-space-sm ${className}`} id={id}>
-      <div className="w-full bg-surface-container/90 backdrop-blur-xl rounded-xl p-space-md lg:p-space-lg shadow-2xl">
-        {(title || right) && (
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-space-md pb-space-md">
-            <div>
-              <h3 className="font-headline-sm text-headline-sm text-primary tracking-tight">{title}</h3>
-              {subtitle && <p className="font-body-sm text-body-sm text-text-muted mt-0.5 max-w-3xl">{subtitle}</p>}
-            </div>
-            {right}
+          <div className="font-eyebrow text-eyebrow text-accent-neon uppercase tracking-widest">
+            {step} · {title}
           </div>
-        )}
-        {children}
-      </div>
-    </div>
-  );
-}
-
-export function StatCard({ eyebrow, badge, value, valueClass = 'text-primary', note, noteClass = 'text-text-muted', caption, footer, bar }) {
-  return (
-    <div className="bg-surface-container-high/70 backdrop-blur-md rounded-xl p-space-md shadow-xl relative overflow-hidden">
-      <div className="flex items-center justify-between text-text-muted font-micro text-micro uppercase tracking-wider mb-2 gap-2">
-        <span>{eyebrow}</span>
-        {badge}
-      </div>
-      <div className="flex items-baseline justify-between gap-2 flex-wrap">
-        <div className={`font-headline-lg text-headline-lg tracking-tight ${valueClass}`}>{value}</div>
-        {note && <div className={`font-label-code text-label-code font-bold ${noteClass}`}>{note}</div>}
-      </div>
-      {caption && <div className="mt-2 text-text-secondary font-body-sm text-body-sm">{caption}</div>}
-      {bar !== undefined && (
-        <div className="mt-3 w-full bg-surface-container-lowest h-1.5 rounded-full overflow-hidden">
-          <div className="bg-primary-container h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, Math.max(0, bar))}%` }} />
+          <h2 className="font-headline-lg text-[26px] leading-[32px] text-primary tracking-tight mt-1 max-w-4xl">{takeaway}</h2>
         </div>
-      )}
-      {footer && <div className="mt-2 text-text-muted font-label-code text-[11px]">{footer}</div>}
-    </div>
+        {right}
+      </div>
+      {children}
+    </section>
   );
 }
 
-export function TierBadge({ tier, TIERS }) {
-  const t = TIERS[tier];
+export function Card({ children, className = '' }) {
+  return <div className={`bg-surface-container/90 rounded-xl p-space-md lg:p-space-lg shadow-xl ${className}`}>{children}</div>;
+}
+
+// A big number with a short label: the unit of "get it in one glance".
+export function BigStat({ label, value, sub, valueClass = 'text-primary' }) {
   return (
-    <span className={`px-2 py-0.5 rounded font-label-code text-label-code font-bold whitespace-nowrap ${t.badge}`}>
-      {t.name} · {t.label}
-    </span>
+    <div className="bg-surface-container-high/70 rounded-xl p-space-md">
+      <div className="font-micro text-micro uppercase tracking-wider text-text-muted">{label}</div>
+      <div className={`font-headline-lg text-headline-lg tracking-tight mt-1 ${valueClass}`}>{value}</div>
+      {sub && <div className="font-body-sm text-body-sm text-text-secondary mt-0.5">{sub}</div>}
+    </div>
   );
 }

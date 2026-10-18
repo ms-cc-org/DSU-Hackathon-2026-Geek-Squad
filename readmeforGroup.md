@@ -45,7 +45,7 @@ Every judge and mentor will evaluate our project against these four exact questi
 
 ### The "Rain Fallacy"
 Most people assume: *Less Rain = Dead Crops*. 
-In our dataset for Iowa Corn (Pearson r with `yield_anomaly_pct`, all 2,470 reported county-years 2000–2025; shown live on the Model Validation page):
+In our dataset for Iowa Corn (Pearson r with `yield_anomaly_pct`, all 2,470 reported county-years 2000–2025; shown live in section 3 "Why these counties"):
 * **Precipitation anomaly (`precip_anomaly_pct`): ONLY +0.13** (very weak).
 * **Extreme Heat Days (`extreme_heat_days` ≥35°C / 95°F): −0.52** (about 4x stronger!).
 * **Weeks in Severe Drought (`weeks_in_d2_plus`): −0.37**.
@@ -96,7 +96,7 @@ The raw dataset provides physical units (harvested acres, bushels per acre). We 
 * **Payout Calculation**:
   $$\text{County Relief Check (\$)} = \$25,000,000 \times \left(\frac{\text{County Dollar Loss}}{\sum_{\text{Tier 1}} \text{Total Tier 1 Loss}}\right)$$
   * Result (2020): 15 Tier 1 counties lost **$324.4M** combined. The $25M fund covers **7.7%** of that, with checks from **$249,534 (Adair) to $3,253,007 (Carroll)**, averaging **$1,666,667**.
-  * Widening the quota spreads the money thinner: at 30%, 29 counties average $862K. The Relief Allocation page has a quota simulator showing every option.
+  * Widening the quota spreads the money thinner: at 30%, 29 counties average $862K. Drag the "Counties funded" slider in the app header to see this live.
 
 ---
 
@@ -132,7 +132,7 @@ Precision = hits ÷ relief slots, counted over years with at least one disaster 
 * **Our Urgency Model (Heat + Drought + Soil)**: **20.7% Precision** (**23 hits, top performer, 1.35x lift over rain**).
   * 2022 drought: our model hit **4 of 8** severe counties, double the drought monitor's 2. 2023: **5 of 8**, vs 4 for the drought monitor and 3 for rainfall.
   * Nebraska corn, same test: **23.6%** (model) vs 17.9% (DSCI) vs 17.0% (rain) vs 14.1% (random), a 1.39x lift.
-* ⚠️ These numbers move if anyone changes weights in `priority_model.py` or the quota slider. The Model Validation page always shows the live values, so read numbers off the app before presenting.
+* ⚠️ These numbers move if anyone changes weights in `priority_model.py` or the quota slider. Section 4 "Does it work?" always shows the live values, so read numbers off the app before presenting.
 
 ---
 
@@ -146,12 +146,13 @@ DSU-Hackathon-2026-Geek-Squad/
 │       ├── App.jsx              # Shared controls: state, crop, year, budget, quota, sort, selected county
 │       ├── lib/api.js           # fetch helper; every number comes from /api/*
 │       └── components/          # Ranking & map, Relief Allocation, Model Validation, County Report Card
-├── app.py                       # Streamlit version of the dashboard (backup; same model)
+├── app.py                       # Streamlit version: one page in pitch order (who/decision banner → answer → why → proof → report card → limits)
 ├── requirements.txt             # Dependencies (streamlit, plotly, pandas, scikit-learn)
 ├── readmeforGroup.md            # THIS FILE: Master briefing & cheat sheet
 ├── src/
 │   ├── data_loader.py           # Loads parquet files and counties.geojson
 │   ├── priority_model.py        # Urgency scoring, economic losses, relief allocation, validation
+│   ├── insights.py              # Shared evidence helpers: data-quality counts, driver correlations, test design constants
 │   └── report_card.py           # Generates 26-year single-county agronomic report cards
 └── data/
     ├── master_dataset.parquet   # 21-column master dataset (2000-2025)
@@ -217,12 +218,13 @@ python api_server.py
 * **Primary Files**: `frontend/src/` (React UI), `api_server.py`; `app.py` (Streamlit backup)
 * **Tasks**:
   * Test the controls (State, Crop, Year, Budget slider, Tier 1 quota, Rank by).
-  * Ensure all four pages (Priority Ranking & Map, Relief Allocation, Model Validation, County Report Card) render smoothly.
-  * Verify the County Map layers, the Urgency vs Harvest Loss scatter, the "How this score & check were computed" popup, and the CSV export.
+  * The app is one page that follows the pitch: 1 Decision → 2 Who gets relief → 3 Why → 4 Does it work? → 5 County report card → 6 Limits & data.
+  * Verify the map toggle ("Our August pick" vs "What the harvest showed"), clicking a county → report card, the "Show the math" popup, and the CSV download.
+  * Spot-check a thin state (Delaware): the page should say there's too little data rather than claim a win.
   * After any UI change, run `npm run build` in `frontend/` so `python api_server.py` serves the latest version.
 
 #### 👤 Person 3: Validation & Visual Proof Specialist
-* **Primary Files**: `src/priority_model.py` (Validation functions) & the Model Validation page
+* **Primary Files**: `src/priority_model.py` (Validation functions) & section 4 "Does it work?"
 * **Tasks**:
   * Be ready to walk judges through the out-of-sample scoreboard table (2016–2025).
   * Memorize the benchmark metrics: **20.7% precision vs 15.3% for rainfall (1.35x), 23 vs 17 hits**.
@@ -252,7 +254,7 @@ python api_server.py
 > **Answer**: *"Because this fund is for drought, and Tama's loss wasn't drought-driven. Its urgency score is only 1.5: few heat days and little time in severe drought. The August 2020 derecho windstorm flattened crops across that part of Iowa. A drought fund that paid out on any loss would mostly be paying for wind damage, which crop insurance and federal disaster programs cover. Our score separates the two."*
 
 ### Q: "Can I check any number on the screen?"
-> **Answer**: *"Yes. Click any county, then 'How this score & check were computed'. It shows every input, weight and step for the score, the dollar loss and the relief check. The same values are in the exported CSV."*
+> **Answer**: *"Yes. Click any county, then 'Show the math behind this score & check'. It shows every input, weight and step for the score, the dollar loss and the relief check. The same values are in the exported CSV."*
 
 ### Q: "Where did the dollar loss figures come from?"
 > **Answer**: *"The raw dataset gives physical units: harvested acres and bushels per acre. We converted those physical losses into real dollars by calculating each county's bushel deficit against its 26-year trend line and multiplying by the official USDA Marketing Year Average price ($4.75/bu for corn)."*

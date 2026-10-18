@@ -37,15 +37,14 @@ from src.priority_model import (
     COMMODITY_PRICES,
 )
 from src.report_card import get_county_report_card
+from src import insights
+from src.insights import SEVERE_THRESHOLD_PCT, TEST_YEARS, TRAIN_YEARS
 
 DIST_DIR = _ROOT / "frontend" / "dist"
 
 # Same choices as the Streamlit sidebar
 STATES = {"IA": "Iowa", "NE": "Nebraska", "CA": "California", "DE": "Delaware"}
 SORT_MODES = {"urgency", "dollar_loss", "yield_loss"}
-TRAIN_YEARS = (2000, 2015)
-TEST_YEARS = (2016, 2025)
-SEVERE_THRESHOLD_PCT = -10.0
 
 print("Loading master dataset...")
 DF = load_master()
@@ -179,6 +178,9 @@ def ranking(state, crop, year, budget, quota_pct, sort_by):
         "allocation_basis": "dollar_loss" if tier1_loss > 0 else "urgency_x_acres",
         "severe_counties": int((ranked["yield_anomaly_pct"] <= SEVERE_THRESHOLD_PCT).sum()),
         "severe_threshold_pct": SEVERE_THRESHOLD_PCT,
+        # Lowest Tier 1 score = this year's effective relief trigger
+        "tier1_min_score": float(tier1["urgency_score"].min()) if tier1_count > 0 else None,
+        "data_quality": data_quality(state, crop, year),
     }
 
     cols = [
@@ -191,6 +193,10 @@ def ranking(state, crop, year, budget, quota_pct, sort_by):
         *comps.columns,
     ]
     return {**base, "empty": False, "summary": _clean(summary), "rows": _records(ranked[cols])}
+
+
+def data_quality(state, crop, year):
+    return insights.data_quality(DF, state, crop, year)
 
 
 def ranking_csv(state, crop, year, budget, quota_pct, sort_by):
@@ -268,30 +274,10 @@ def validation(state, crop, quota_pct):
     }
 
 
-DRIVERS = [
-    ("extreme_heat_days", "Extreme heat days (≥35°C)"),
-    ("weeks_in_d2_plus", "Weeks in severe drought (D2+)"),
-    ("mean_dsci", "Drought severity index (DSCI)"),
-    ("precip_anomaly_pct", "Precipitation anomaly (%)"),
-    ("aws_100cm_mm", "Soil water storage (AWS, mm)"),
-]
-
 
 @lru_cache(maxsize=32)
 def driver_correlations(state, crop):
-    """Pearson r between each model input and yield anomaly, all reported county-years."""
-    sub = DF[
-        (DF["state_alpha"] == state) & (DF["crop"] == crop)
-        & (DF["yield_status"] == "reported") & DF["yield_anomaly_pct"].notna()
-    ]
-    if len(sub) < 10:
-        return {"n": len(sub), "drivers": []}
-    drivers = [
-        {"id": col, "label": label, "r": sub["yield_anomaly_pct"].corr(sub[col])}
-        for col, label in DRIVERS
-    ]
-    years = sub["year"]
-    return _clean({"n": len(sub), "year_min": years.min(), "year_max": years.max(), "drivers": drivers})
+    return _clean(insights.driver_correlations(DF, state, crop))
 
 
 @lru_cache(maxsize=16)
