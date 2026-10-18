@@ -1,7 +1,31 @@
 # 🌾 State Drought Assistance & Priority Targeting System | update readme as we go 
 ## Team Notes & Project Briefing Sheet (`readmeforGroup.md`)
 **DSU Hackathon 2026 | Team Geek Squad**  
-*Last Updated: Saturday, October 17, 2026. All numbers below were regenerated from the current `src/priority_model.py` (Iowa corn, $25M fund, 15% quota unless stated).*
+*Last Updated: Sunday, October 18, 2026. All numbers below were re-checked against the live app (Iowa corn, $25M fund, 15% quota unless stated).*
+
+> **Judges:** our project write-up is this file. The top-level `README.md` is the organizers' original challenge brief, kept unchanged.
+
+---
+
+## Quick Start (for judges)
+
+**Try it live:** https://ms-cc-org.github.io/DSU-Hackathon-2026-Geek-Squad/
+(The API runs on a free server that sleeps when idle; the first load can take 30–60 seconds.)
+
+**Our task in one sentence:** A **state drought program administrator** needs to decide **which counties get emergency drought relief first, and what score triggers it**, by **mid-August, before harvest surveys exist**. Our tool shows them a ranked, mapped list of counties with a dollar amount for each, and a blind test on 2016–2025 showing the ranking picks real disasters more often than rainfall, the Drought Monitor, or random picks.
+
+**Run it yourself** (Python 3.11+, Node 18+):
+```bash
+git clone https://github.com/ms-cc-org/DSU-Hackathon-2026-Geek-Squad.git
+cd DSU-Hackathon-2026-Geek-Squad
+python3 -m venv .venv && source .venv/bin/activate      # Windows: py -m venv .venv; .venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+cd frontend && npm install && npm run build && cd ..    # build the dashboard once
+python api_server.py                                     # open http://localhost:8000
+```
+* **Optional AI chat ("Ask the data"):** create a file named `.env` in the repo root containing `ANTHROPIC_API_KEY=<your key>`, then restart `python api_server.py`. Every other page works without a key.
+* **No Node?** `streamlit run app.py` (http://localhost:8501) runs the Streamlit version of the same dashboard, built on the same model code.
+* **How to use it:** pick a state, crop, season, fund size and quota at the top, then follow the pages with the **Next** button: 1 The decision → 2 Who gets relief → 3 Why → 4 Does it work? → 5 County report card → 6 Limits & data → Ask the data.
 
 ---
 
@@ -16,6 +40,7 @@
 8. [Team Work-Split & Phased Deliverables (6:00 PM Checkpoint & Sunday)](#8-team-work-split--phased-deliverables)
 9. [Judge Q&A Cheat Sheet (Bulletproof Answers)](#9-judge-qa-cheat-sheet)
 10. [Data Sources & Official Federal Citations](#10-data-sources--official-federal-citations)
+11. [AI Disclosure](#11-ai-disclosure)
 
 ---
 
@@ -24,7 +49,7 @@
 * **The Problem**: When extreme summer droughts strike agricultural states (Iowa, Nebraska), farmers face catastrophic financial ruin. Federal USDA disaster relief checks (ERP/WHIP+) take **12 to 18 months** to process and arrive. State Departments of Agriculture have emergency funds (**$25M–$50M**) to issue immediate bridge relief, but relief decisions are bottlenecked by delayed post-harvest surveys and subjective political lobbying.
 * **The Decision**: Which counties receive emergency state funding first, and what transparent, data-driven threshold triggers that assistance in August before harvest surveys are completed?
 * **Our Solution**: An interactive **React dashboard** (backed by a Python API; a Streamlit version is kept as a backup) powered by a **Drought Urgency Index (1 to 10)** that integrates atmospheric heat, drought persistence, and the underground "soil sponge." It automatically sorts counties into Action Tiers (` Tier 1 Immediate Relief`, `️ Tier 2 Monitoring`, ` Tier 3 Resilient`) and rations the emergency fund proportionally to the hardest-hit farming communities.
-* **The Empirical Proof**: Trained strictly on **2000–2015** data and tested blind on **10 unseen modern seasons (2016–2025)**. It caught severe yield crashes with **20.7% precision**, outperforming the drought monitor alone (18.0%), pure rainfall deficit (15.3%) and random allocation (8.8%). That is a **1.35× lift over rainfall** in Iowa corn (Nebraska corn: **23.6% vs 17.0%, 1.39×**).
+* **The Empirical Proof**: The scoring rules are fixed in code and tested blind on **10 unseen modern seasons (2016–2025)**. Its picks were real severe yield crashes **19.8% of the time** (22 of 111 relief slots), ahead of the drought monitor alone (18.0%), pure rainfall deficit (15.3%) and random allocation (8.8%). That is a **1.29× lift over rainfall** in Iowa corn (Nebraska corn: **21.7% vs 17.0%, 1.28×**). The edge over the drought monitor is small (22 vs 20 hits), and we say so.
 
 ---
 
@@ -37,7 +62,7 @@ Every judge and mentor will evaluate our project against these four exact questi
 | **Q1** | **Who is your user?** | A **State Drought Program Administrator** (e.g., Iowa Department of Agriculture & Land Stewardship or Nebraska Department of Natural Resources). |
 | **Q2** | **What do they decide?** | **Which counties receive emergency drought relief checks first**, and how much aid to disburse from a **$25M state relief fund** before post-harvest survey numbers are published. |
 | **Q3** | **What evidence did you use?** | A multi-layered synthesis of **26 years of USDA NASS yields, NOAA ACIS daily temperatures, USDM weekly drought indices, and NRCS SSURGO soil hydrology**. We prove that rainfall alone is misleading (+0.13 correlation with yield anomaly) and replace it with **Extreme Heat Days (≥35°C, −0.52 corr)**, **Drought Duration (weeks in D2+, −0.37 corr)**, and the **Soil Sponge (Available Water Storage `aws_100cm_mm`)**. |
-| **Q4** | **How do you know it works?** | We ran an **out-of-sample 10-year blind test**. We calibrated our model on **2000–2015**, locked the rules, and tested it on unseen years **2016–2025**. Across the test years our model scored **23 hits vs 17 for rainfall** (20.7% vs 15.3% precision). In the high-stress seasons (2020, 2022, 2023) it caught **20 disasters vs 15 for rainfall maps**. |
+| **Q4** | **How do you know it works?** | We ran an **out-of-sample 10-year blind test**. The scoring rules are fixed, and we scored them on the years **2016–2025** against what the harvest actually showed. Across the test years our model scored **22 hits vs 17 for rainfall** (19.8% vs 15.3% precision; drought monitor 18.0%, random 8.8%). In the high-stress seasons (2020, 2022, 2023) it caught **19 disasters vs 15 for rainfall maps**. |
 
 ---
 
@@ -104,7 +129,7 @@ The raw dataset provides physical units (harvested acres, bushels per acre). We 
 
 To satisfy **Rubric C3 (Data & Evidence)** and **C5 (Innovation)**, we evaluated our model on modern seasons it had never seen before:
 
-* **Training Window (2000–2015)**: 16 historical seasons used to calibrate urgency weights and soil buffering relationships.
+* **Weights**: fixed constants in `src/priority_model.py` (0.30 heat, 0.30 weeks in D2+, 0.25 DSCI, 0.15 rain deficit, up to 25% soil discount). Nothing is fitted to the test years. The code labels **2000–2015** as the training window, but it doesn't fit anything on it; be accurate about this if asked (see section 9).
 * **Holdout Test Window (2016–2025)**: 10 modern seasons evaluated completely blind.
 
 ### The Scoreboard on Unseen Modern Disasters (2016–2025):
@@ -118,7 +143,7 @@ Tested on Iowa Corn with Tier 1 = top 15% of counties ($K = \lceil 0.15 \times \
  2019        88             14                       1                  0               1                   1
  2020        95             15                      33                  9              11                  11
  2021        84             13                       1                  0               0                   0
- 2022        97             15                       8                  3               2                   4
+ 2022        97             15                       8                  3               2                   3
  2023        87             14                       8                  3               4                   5
  2024        73             11                       3                  0               0                   0
  2025        79             12                       0                  0               0                   0
@@ -129,9 +154,10 @@ Precision = hits ÷ relief slots, counted over years with at least one disaster 
 * **Random County Guessing**: **8.8% Precision** (9.7 expected hits). Wasteful: misses 9 out of 10 disasters.
 * **Naive Rainfall Deficit Alone**: **15.3% Precision** (17 hits). Tricked by deep soil sponges and misses heatwaves.
 * **Pure Drought Monitor Category (DSCI)**: **18.0% Precision** (20 hits).
-* **Our Urgency Model (Heat + Drought + Soil)**: **20.7% Precision** (**23 hits, top performer, 1.35x lift over rain**).
-  * 2022 drought: our model hit **4 of 8** severe counties, double the drought monitor's 2. 2023: **5 of 8**, vs 4 for the drought monitor and 3 for rainfall.
-  * Nebraska corn, same test: **23.6%** (model) vs 17.9% (DSCI) vs 17.0% (rain) vs 14.1% (random), a 1.39x lift.
+* **Our Urgency Model (Heat + Drought + Soil)**: **19.8% Precision** (**22 hits, top performer, 1.29x lift over rain**).
+  * 2020: **11 of 15** picks were severe-loss counties (rainfall alone: 9). 2022: **3 of 8**, tied with rainfall and ahead of the drought monitor's 2. 2023: **5 of 8**, vs 4 for the drought monitor and 3 for rainfall.
+  * 2018: 6 counties had severe losses and **every method caught 0**. Those losses didn't follow the drought signals, so no drought score catches them. Check the 2018 rows before naming a cause.
+  * Nebraska corn, same test: **21.7%** (model) vs 17.9% (DSCI) vs 17.0% (rain) vs 14.1% (random), a 1.28x lift.
 * ⚠️ These numbers move if anyone changes weights in `priority_model.py` or the quota slider. Section 4 "Does it work?" always shows the live values, so read numbers off the app before presenting.
 
 ---
@@ -208,11 +234,10 @@ python api_server.py
   ```
   Without a key, every other page works, and the chat shows these setup steps.
 
-#### ⚠️ "Ask the data" failing? Troubleshooting (as of Oct 17)
-**Current status:** the chat is wired up end to end, and all 5 tools it uses (`rank_counties`, `county_details`,
-`validation_results`, `what_drives_losses`, `data_coverage`) were tested directly against the dataset and return
-correct numbers. **It fails right now only because the repo has no `.env` file, so there's no API key.**
-The server answers every question with HTTP 503: *"No Anthropic API key is configured."*
+#### ⚠️ "Ask the data" failing? Troubleshooting
+**Status (Oct 18):** the chat works on the live site (key set on Render). All 5 tools it uses (`rank_counties`,
+`county_details`, `validation_results`, `what_drives_losses`, `data_coverage`) were tested directly against the dataset.
+Running locally, it only works once *your* `.env` has a real key; without one, the server answers with HTTP 503.
 
 | What you see in the chat | Cause | Fix |
 |---|---|---|
@@ -262,15 +287,14 @@ Browser → https://ms-cc-org.github.io/DSU-Hackathon-2026-Geek-Squad/   (React 
 * [x] First version runs and displays real results on screen.
 * [x] Ranked CSV generated using the model: `data/processed/county_priority_rankings_2020.csv`.
 
-### Current Status (Saturday, Oct 17):
+### Current Status (Sunday, Oct 18):
 * [x] React dashboard split into pitch-order pages (tabs + "Next" buttons) instead of one long scroll.
 * [x] Streamlit and React dashboards show the same numbers (both call `src/priority_model.py`).
 * [x] "Ask the data" AI assistant built: `src/advisor.py` (Claude + 5 read-only tools), `POST /api/chat` in `api_server.py`, `AdvisorView.jsx` page.
-* [ ] **Blocked: the AI chat needs `ANTHROPIC_API_KEY` in `.env`** (see the troubleshooting table in section 7). Whoever owns the key: add it locally, never commit it.
-* [ ] After the key is in: test the 4 suggested questions in the chat, including the "can't answer" one (farm field near Ames).
-* [x] Deployment config written: `render.yaml` (API on Render) + `.github/workflows/pages.yml` (UI on GitHub Pages). Tested locally: Pages-style build and CORS.
-* [ ] **Deploy:** do the one-time setup in section 7.4 (Render blueprint + `API_URL` variable + Pages source).
-* [ ] Commit the uncommitted AI chat and page-navigation work (`api_server.py`, `src/advisor.py`, `frontend/src/…`).
+* [x] **Live:** UI on GitHub Pages, API on Render with the key set there. Checked: site loads, API answers, chat answered a 2020 Iowa question correctly.
+* [ ] Each presenter: test the chat questions, including the "can't answer" one (farm field near Ames). Running locally needs your own `.env` key.
+* [ ] **Submit by 12:00 PM ET:** open the submission issue with all members and the full 40-character SHA of the final commit (`git rev-parse HEAD`).
+* [ ] Fill in the "Team to confirm" items in section 11 (AI Disclosure).
 
 ### Work-Split by Team Member:
 
@@ -295,7 +319,7 @@ Browser → https://ms-cc-org.github.io/DSU-Hackathon-2026-Geek-Squad/   (React 
 * **Primary Files**: `src/priority_model.py` (Validation functions) & section 4 "Does it work?"
 * **Tasks**:
   * Be ready to walk judges through the out-of-sample scoreboard table (2016–2025).
-  * Memorize the benchmark metrics: **20.7% precision vs 15.3% for rainfall (1.35x), 23 vs 17 hits**.
+  * Memorize the benchmark metrics: **19.8% precision vs 15.3% for rainfall (1.29x), 22 vs 17 hits** (drought monitor 18.0%, 20 hits; random 8.8%).
   * Highlight the 2020, 2022, and 2023 case study years during the demo.
 
 #### 👤 Person 4: Pitch Deck, Demo & Narrative Lead
@@ -324,6 +348,24 @@ Browser → https://ms-cc-org.github.io/DSU-Hackathon-2026-Geek-Squad/   (React 
 ### Q: "Can I check any number on the screen?"
 > **Answer**: *"Yes. Click any county, then 'Show the math behind this score & check'. It shows every input, weight and step for the score, the dollar loss and the relief check. The same values are in the exported CSV."*
 
+### Q: "How did you choose the weights? What did you do with 2000–2015?"
+> **Answer**: *"We ranked the inputs by how strongly each one tracks yield loss, and gave the strongest ones the most weight. Heat days have the strongest link (r = −0.52), so heat gets 0.30. Weeks in severe drought (−0.37) also get 0.30, and drought severity (−0.36) gets 0.25. Rainfall is weakest (+0.13), so it gets only 0.15. The four add up to 1. Soil water storage has almost no link on its own (≈0), but deep soil protects crops in a drought, so it doesn't add to the score: it discounts it by up to 25%. Then we froze the weights and tested them blind on 2016–2025."*
+>
+> **How the code computes it (`urgency_components()` in `src/priority_model.py`)**, if a judge wants detail:
+> 1. Each input is scaled to 0–1 against a fixed cap: heat days ÷ 15, weeks in D2+ ÷ 20, DSCI ÷ 500, rainfall shortfall ÷ 50%. Only *below-average* rain counts; a wet season adds nothing. Fixed caps mean a score means the same thing every year.
+> 2. Hazard = 0.30 × heat + 0.30 × weeks in D2+ + 0.25 × DSCI + 0.15 × rain shortfall (0 to 1).
+> 3. Soil buffer = the county's water storage ÷ the 95th percentile of the counties being scored (capped at 1). Net urgency = hazard × (1 − 0.25 × soil buffer).
+> 4. Score = 1 + 9 × net urgency, rounded to one decimal (1 = no stress, 10 = maximum).
+> 5. Missing values: missing heat, drought or rain counts as 0 (no stress); missing soil data is treated as 150 mm, about an average Midwest soil.
+>
+> **Be accurate if pressed:** the weights are set by hand, not fitted by an algorithm, and the code doesn't fit anything on 2000–2015. The correlations that guided the ordering (page 3) use all 26 years, including the test years. What the blind test proves is that these frozen weights beat rainfall alone, the drought monitor alone and random picks on 2016–2025.
+
+### Q: "In 2018 six counties had severe losses and you caught none. Why?"
+> **Answer**: *"No method did: rainfall, the drought monitor and our score all scored zero that year. Those losses didn't follow drought signals, so a drought fund shouldn't be paying for them, and we don't hide it."* (Check the 2018 rows before naming a cause.)
+
+### Q: "Did you use AI?"
+> **Answer**: *"Yes, and it's disclosed in section 11 of our team README: what for, which parts, and how we checked it. The in-app assistant only quotes numbers it gets from our own model functions."*
+
 ### Q: "Where did the dollar loss figures come from?"
 > **Answer**: *"The raw dataset gives physical units: harvested acres and bushels per acre. We converted those physical losses into real dollars by calculating each county's bushel deficit against its 26-year trend line and multiplying by the official USDA Marketing Year Average price ($4.75/bu for corn)."*
 
@@ -345,3 +387,41 @@ Browser → https://ms-cc-org.github.io/DSU-Hackathon-2026-Geek-Squad/   (React 
 * **NOAA ACIS (Applied Climate Information System)**: [`https://www.rcc-acis.org/docs_webservices.html`](https://www.rcc-acis.org/docs_webservices.html)
 * **U.S. Drought Monitor (National Drought Mitigation Center)**: [`https://droughtmonitor.unl.edu/`](https://droughtmonitor.unl.edu/)
 * **USDA NRCS SSURGO (Soil Data Access API)**: [`https://sdmdataaccess.nrcs.usda.gov/`](https://sdmdataaccess.nrcs.usda.gov/)
+
+---
+
+## 11. AI Disclosure
+
+The hackathon allows AI use and requires us to disclose it. This section lists what we know; **team members must add or correct anything under "Team to confirm" before submitting.**
+
+### Tools used
+| Tool | Used for |
+|---|---|
+| **Gemini** (Google) | Brainstorming: ideas and approaches for the project. |
+| **Antigravity** (Google's AI coding tool) | The first part of the project: getting the Streamlit app and the initial code working, before we switched to Claude Code. |
+| **Claude** (Anthropic) | Turning our raw notes into these team notes (`readmeforGroup.md`). |
+| **Claude Code** (Anthropic, model Claude Opus 5.5) | Coding assistant for the later work (details below). |
+| **Claude API** (model `claude-opus-5-5`) | Runs inside the app: the "Ask the data" assistant (`src/advisor.py`). |
+
+### What Claude Code wrote or changed (Oct 17–18)
+* **"Ask the data" fixes and server setup:** diagnosed the chat failures (missing API key, wrong Python environment) and added the troubleshooting table in section 7.
+* **Hosting:** `render.yaml`, `requirements-api.txt`, `.github/workflows/pages.yml`, CORS and host settings in `api_server.py`, and the API address setting in `frontend/src/lib/api.js` and `frontend/vite.config.js`.
+* **UI:** centered the Next button on the first page (`frontend/src/App.jsx`); clean "Server stopped." message on Ctrl+C.
+* **Docs:** sections of this file (troubleshooting, deployment steps, status, Quick Start, this disclosure) and the number corrections in sections 1, 2, 5 and 8.
+
+### How the in-app assistant works
+* It never sees the raw dataset. It answers only by calling five read-only Python functions that run the same model code as the dashboard (`rank_counties`, `county_details`, `validation_results`, `what_drives_losses`, `data_coverage`), so its numbers match the screen.
+* It is told to say "The data can't answer that" for field-level, irrigation, other-state or post-2025 questions, and to warn when a sample is small.
+* The API key is kept in `.env` (git-ignored) locally and in Render's settings when hosted; it is never committed.
+
+### How we verified AI-written work
+* Ran each of the assistant's five functions directly against the dataset and checked their output.
+* Tested the hosted API (site loads, API answers, cross-site requests allowed only from our GitHub Pages site) and asked the live chat a 2020 Iowa question: its answer (15 of 95 counties, trigger score 3.7) matches the dashboard.
+* Rebuilt the frontend after every UI change and checked the result in a screenshot.
+* Re-pulled every headline number in this file from the live app on Oct 18 rather than trusting earlier notes.
+
+### Team to confirm
+* [ ] Add how we checked the Antigravity-built code (e.g. ran the Streamlit app, compared its numbers with the React dashboard).
+* [ ] Confirm which tool wrote `src/advisor.py` and the React pages, and add any other AI tool used (e.g. for the slides).
+* [ ] Every member can explain and change any part of the code during judging (required by the briefing).
+
