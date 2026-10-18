@@ -9,12 +9,14 @@ import LimitsSection from './components/LimitsSection.jsx';
 import AdvisorView from './components/AdvisorView.jsx';
 import RationaleModal from './components/RationaleModal.jsx';
 import Footer from './components/Footer.jsx';
+import Landing from './components/Landing.jsx';
 import Icon from './components/Icon.jsx';
 import { StatusPanel } from './components/Status.jsx';
 import { apiUrl, useApi } from './lib/api.js';
 
 // One page per step of the pitch, in order: decision -> answer -> why -> proof -> county -> limits, plus "Ask the data".
 export default function App() {
+  const [landing, setLanding] = useState(true); // opening screen; the data still loads behind it
   const [page, setPage] = useState('decision');
   const [stateCode, setStateCode] = useState('IA');
   const [crop, setCrop] = useState('CORN');
@@ -97,9 +99,18 @@ export default function App() {
 
   return (
     <>
+      {landing && (
+        <Landing
+          onEnter={(id) => {
+            setLanding(false);
+            go(id);
+          }}
+        />
+      )}
       <Header
         page={page}
         onNavigate={go}
+        onHome={() => setLanding(true)}
         options={options.data}
         stateCode={stateCode}
         onStateChange={changeState}

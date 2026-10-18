@@ -13,7 +13,7 @@ export const PAGES = [
   { id: 'ask', label: 'Ask the data', icon: 'smart_toy' },
 ];
 
-export default function Header({ page, onNavigate, options, stateCode, onStateChange, crop, onCropChange, year, onYearChange, budgetM, onBudgetChange, quotaPct, onQuotaChange, loading }) {
+export default function Header({ page, onNavigate, onHome, options, stateCode, onStateChange, crop, onCropChange, year, onYearChange, budgetM, onBudgetChange, quotaPct, onQuotaChange, loading }) {
   const crops = options?.states.find((s) => s.code === stateCode)?.crops ?? [];
   const years = options ? [...options.years].reverse() : [];
 
@@ -21,13 +21,13 @@ export default function Header({ page, onNavigate, options, stateCode, onStateCh
     <header className="fixed top-0 left-0 w-full z-40 bg-surface/95 backdrop-blur-xl border-b border-surface-container-highest">
       <div className="max-w-7xl mx-auto px-gutter py-2.5 flex flex-col gap-2">
         <div className="flex items-center justify-between gap-space-md flex-wrap">
-          <div className="flex items-center gap-2">
+          <button onClick={onHome} title="Back to the start screen" className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity">
             <span className="text-[22px] leading-none" aria-hidden="true">
               🌽
             </span>
             <span className="font-headline-sm text-title-md font-bold text-primary tracking-tight">Drought Relief Targeting</span>
             <span className="hidden md:inline font-label-code text-label-code text-text-muted">· Team Geek Squad · DSU Hackathon 2026</span>
-          </div>
+          </button>
           <nav className="flex items-center gap-1 overflow-x-auto" aria-label="Pages">
             {PAGES.map((p, i) => (
               <button

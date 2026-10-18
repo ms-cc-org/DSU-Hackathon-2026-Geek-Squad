@@ -19,3 +19,18 @@
 ::-webkit-scrollbar {
   display: none;
 }
+
+/* Landing screen: spinning globe, orbits and fade-in (src/components/Landing.jsx) */
+@keyframes globeSpin { to { transform: rotate(360deg); } }
+@keyframes orbitTrack { from { transform: rotate(0deg) scaleY(0.42); } to { transform: rotate(360deg) scaleY(0.42); } }
+@keyframes orbitCounter { from { transform: rotate(360deg) scaleY(0.38); } to { transform: rotate(0deg) scaleY(0.38); } }
+@keyframes globePulse { 0%, 100% { transform: scale(1); opacity: 0.85; } 50% { transform: scale(1.05); opacity: 1; } }
+@keyframes heroRevealUp { from { opacity: 0; transform: translateY(22px) scale(0.97); } to { opacity: 1; transform: none; } }
+.anim-globe-spin { animation: globeSpin 28s linear infinite; }
+.anim-orbit-1 { animation: orbitTrack 14s linear infinite; }
+.anim-orbit-2 { animation: orbitCounter 19s linear infinite; }
+.anim-globe-pulse { animation: globePulse 4s ease-in-out infinite; }
+.anim-reveal-hero { animation: heroRevealUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .anim-globe-spin, .anim-orbit-1, .anim-orbit-2, .anim-globe-pulse, .anim-reveal-hero { animation: none; }
+}
