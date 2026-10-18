@@ -1,5 +1,5 @@
-# 🌾 State Drought Assistance & Priority Targeting System | update readme as we go 
-## Team Notes & Project Briefing Sheet (`readmeforGroup.md`)
+# 🌾 State Drought Assistance & Priority Targeting System  (`readmeforGroup.md`)
+
 **DSU Hackathon 2026 | Team Geek Squad**  
 *Last Updated: Sunday, October 18, 2026. All numbers below were re-checked against the live app (Iowa corn, $25M fund, 15% quota unless stated).*
 
@@ -49,7 +49,7 @@ python api_server.py                                     # open http://localhost
 * **The Problem**: When extreme summer droughts strike agricultural states (Iowa, Nebraska), farmers face catastrophic financial ruin. Federal USDA disaster relief checks (ERP/WHIP+) take **12 to 18 months** to process and arrive. State Departments of Agriculture have emergency funds (**$25M–$50M**) to issue immediate bridge relief, but relief decisions are bottlenecked by delayed post-harvest surveys and subjective political lobbying.
 * **The Decision**: Which counties receive emergency state funding first, and what transparent, data-driven threshold triggers that assistance in August before harvest surveys are completed?
 * **Our Solution**: An interactive **React dashboard** (backed by a Python API; a Streamlit version is kept as a backup) powered by a **Drought Urgency Index (1 to 10)** that integrates atmospheric heat, drought persistence, and the underground "soil sponge." It automatically sorts counties into Action Tiers (` Tier 1 Immediate Relief`, `️ Tier 2 Monitoring`, ` Tier 3 Resilient`) and rations the emergency fund proportionally to the hardest-hit farming communities.
-* **The Empirical Proof**: The scoring rules are fixed in code and tested blind on **10 unseen modern seasons (2016–2025)**. Its picks were real severe yield crashes **19.8% of the time** (22 of 111 relief slots), ahead of the drought monitor alone (18.0%), pure rainfall deficit (15.3%) and random allocation (8.8%). That is a **1.29× lift over rainfall** in Iowa corn (Nebraska corn: **21.7% vs 17.0%, 1.28×**). The edge over the drought monitor is small (22 vs 20 hits), and we say so.
+* **The Empirical Proof**: The scoring rules are fixed in code and tested blind on **10 unseen modern seasons (2016–2025)**. Its picks were real severe yield crashes **20.7% of the time** (23 of 111 relief slots), ahead of the drought monitor alone (18.0%), pure rainfall deficit (15.3%) and random allocation (8.8%). That is a **1.35× lift over rainfall** in Iowa corn (Nebraska corn: **22.6% vs 17.0%, 1.33×**). The edge over the drought monitor is small (23 vs 20 hits), and we say so.
 
 ---
 
@@ -62,7 +62,7 @@ Every judge and mentor will evaluate our project against these four exact questi
 | **Q1** | **Who is your user?** | A **State Drought Program Administrator** (e.g., Iowa Department of Agriculture & Land Stewardship or Nebraska Department of Natural Resources). |
 | **Q2** | **What do they decide?** | **Which counties receive emergency drought relief checks first**, and how much aid to disburse from a **$25M state relief fund** before post-harvest survey numbers are published. |
 | **Q3** | **What evidence did you use?** | A multi-layered synthesis of **26 years of USDA NASS yields, NOAA ACIS daily temperatures, USDM weekly drought indices, and NRCS SSURGO soil hydrology**. We prove that rainfall alone is misleading (+0.13 correlation with yield anomaly) and replace it with **Extreme Heat Days (≥35°C, −0.52 corr)**, **Drought Duration (weeks in D2+, −0.37 corr)**, and the **Soil Sponge (Available Water Storage `aws_100cm_mm`)**. |
-| **Q4** | **How do you know it works?** | We ran an **out-of-sample 10-year blind test**. The scoring rules are fixed, and we scored them on the years **2016–2025** against what the harvest actually showed. Across the test years our model scored **22 hits vs 17 for rainfall** (19.8% vs 15.3% precision; drought monitor 18.0%, random 8.8%). In the high-stress seasons (2020, 2022, 2023) it caught **19 disasters vs 15 for rainfall maps**. |
+| **Q4** | **How do you know it works?** | We ran an **out-of-sample 10-year blind test**. The scoring rules are fixed, and we scored them on the years **2016–2025** against what the harvest actually showed. Across the test years our model scored **23 hits vs 17 for rainfall** (20.7% vs 15.3% precision; drought monitor 18.0%, random 8.8%). In the high-stress seasons (2020, 2022, 2023) it caught **20 disasters vs 15 for rainfall maps**. |
 
 ---
 
@@ -113,7 +113,7 @@ The raw dataset provides physical units (harvested acres, bushels per acre). We 
 > * Statewide Corn Loss: **12,322,800 harvested acres** suffered **$1,104,401,933** (Over **$1.10 Billion**) in lost corn revenue.
 > * **Carroll County, IA**: 178,800 acres, yield −24.8% vs trend = **$42.2 Million** lost. Urgency rank #3 → relief check **$3,253,007** (the largest).
 > * **Guthrie County, IA**: 104,300 acres, yield −19.7% = **$18.4 Million** lost. Urgency rank #1 (score 4.8) → relief check **$1,420,327**.
-> * **Tama County, IA**: 148,200 acres, yield −32.4% = **$44.7 Million** lost, but urgency score only 1.5 (rank #58), so **no drought relief**. Its loss was not drought-driven: Tama was in the path of the August 2020 derecho windstorm. See the Q&A below.
+> * **Tama County, IA**: 148,200 acres, yield −32.4% = **$44.7 Million** lost, but urgency score only 1.5 (rank #59), so **no drought relief**. Its loss was not drought-driven: Tama was in the path of the August 2020 derecho windstorm. See the Q&A below.
 
 ### How Relief Money is Allocated
 * **Budget Size**: State Emergency Agricultural Relief Fund default is **$25,000,000** (adjustable via the Emergency relief fund slider from $5M to $100M).
@@ -143,7 +143,7 @@ Tested on Iowa Corn with Tier 1 = top 15% of counties ($K = \lceil 0.15 \times \
  2019        88             14                       1                  0               1                   1
  2020        95             15                      33                  9              11                  11
  2021        84             13                       1                  0               0                   0
- 2022        97             15                       8                  3               2                   3
+ 2022        97             15                       8                  3               2                   4
  2023        87             14                       8                  3               4                   5
  2024        73             11                       3                  0               0                   0
  2025        79             12                       0                  0               0                   0
@@ -154,10 +154,11 @@ Precision = hits ÷ relief slots, counted over years with at least one disaster 
 * **Random County Guessing**: **8.8% Precision** (9.7 expected hits). Wasteful: misses 9 out of 10 disasters.
 * **Naive Rainfall Deficit Alone**: **15.3% Precision** (17 hits). Tricked by deep soil sponges and misses heatwaves.
 * **Pure Drought Monitor Category (DSCI)**: **18.0% Precision** (20 hits).
-* **Our Urgency Model (Heat + Drought + Soil)**: **19.8% Precision** (**22 hits, top performer, 1.29x lift over rain**).
-  * 2020: **11 of 15** picks were severe-loss counties (rainfall alone: 9). 2022: **3 of 8**, tied with rainfall and ahead of the drought monitor's 2. 2023: **5 of 8**, vs 4 for the drought monitor and 3 for rainfall.
+* **Our Urgency Model (Heat + Drought + Soil)**: **20.7% Precision** (**23 hits, top performer, 1.35x lift over rain**).
+  * 2020: **11 of 15** picks were severe-loss counties (rainfall alone: 9). 2022: **4 of 8**, vs 3 for rainfall and 2 for the drought monitor. 2023: **5 of 8**, vs 4 for the drought monitor and 3 for rainfall.
   * 2018: 6 counties had severe losses and **every method caught 0**. Those losses didn't follow the drought signals, so no drought score catches them. Check the 2018 rows before naming a cause.
-  * Nebraska corn, same test: **21.7%** (model) vs 17.9% (DSCI) vs 17.0% (rain) vs 14.1% (random), a 1.28x lift.
+  * Nebraska corn, same test: **22.6%** (model, 24 hits) vs 17.9% (DSCI) vs 17.0% (rain) vs 14.1% (random), a 1.33x lift. Not every season wins: in Nebraska 2022 rainfall alone caught 9 and our model only 3.
+* **Ties at the cutoff:** scores show one decimal, so several counties can share the last funded score (e.g. Story, Polk, Webster and Adair all at 3.7 in 2020). Ties are broken by the unrounded score, which uses only August data, then by FIPS code, so every computer gives the same ranking. Ties are never broken by dollar loss, which isn't known until harvest.
 * ⚠️ These numbers move if anyone changes weights in `priority_model.py` or the quota slider. Section 4 "Does it work?" always shows the live values, so read numbers off the app before presenting.
 
 ---
@@ -319,7 +320,7 @@ Browser → https://ms-cc-org.github.io/DSU-Hackathon-2026-Geek-Squad/   (React 
 * **Primary Files**: `src/priority_model.py` (Validation functions) & section 4 "Does it work?"
 * **Tasks**:
   * Be ready to walk judges through the out-of-sample scoreboard table (2016–2025).
-  * Memorize the benchmark metrics: **19.8% precision vs 15.3% for rainfall (1.29x), 22 vs 17 hits** (drought monitor 18.0%, 20 hits; random 8.8%).
+  * Memorize the benchmark metrics: **20.7% precision vs 15.3% for rainfall (1.35x), 23 vs 17 hits** (drought monitor 18.0%, 20 hits; random 8.8%).
   * Highlight the 2020, 2022, and 2023 case study years during the demo.
 
 #### 👤 Person 4: Pitch Deck, Demo & Narrative Lead
@@ -362,6 +363,9 @@ Browser → https://ms-cc-org.github.io/DSU-Hackathon-2026-Geek-Squad/   (React 
 
 ### Q: "In 2018 six counties had severe losses and you caught none. Why?"
 > **Answer**: *"No method did: rainfall, the drought monitor and our score all scored zero that year. Those losses didn't follow drought signals, so a drought fund shouldn't be paying for them, and we don't hide it."* (Check the 2018 rows before naming a cause.)
+
+### Q: "Your model loses some seasons. Why trust it?"
+> **Answer**: *"It's not perfect, and the page shows every season. In Nebraska 2022 rainfall alone caught 9 disasters and we caught 3. Over all ten test years it wins in both states: 23 hits vs 17 for rainfall in Iowa, 24 vs 18 in Nebraska. An administrator can see exactly where it's strong and where it isn't."*
 
 ### Q: "Did you use AI?"
 > **Answer**: *"Yes, and it's disclosed in section 11 of our team README: what for, which parts, and how we checked it. The in-app assistant only quotes numbers it gets from our own model functions."*
@@ -407,6 +411,7 @@ The hackathon allows AI use and requires us to disclose it. This section lists w
 * **"Ask the data" fixes and server setup:** diagnosed the chat failures (missing API key, wrong Python environment) and added the troubleshooting table in section 7.
 * **Hosting:** `render.yaml`, `requirements-api.txt`, `.github/workflows/pages.yml`, CORS and host settings in `api_server.py`, and the API address setting in `frontend/src/lib/api.js` and `frontend/vite.config.js`.
 * **UI:** centered the Next button on the first page (`frontend/src/App.jsx`); clean "Server stopped." message on Ctrl+C.
+* **Model fix:** ties at the funding cutoff are now broken by the unrounded score, then FIPS code (`_top_first()` in `src/priority_model.py`). Before, the blind-test result differed between computers (19.8% on the hosted server, 20.7% on a laptop) and ties on the dashboard were broken by dollar loss, which isn't known in August. The blind test also scores each season on its own, exactly like the dashboard.
 * **Docs:** sections of this file (troubleshooting, deployment steps, status, Quick Start, this disclosure) and the number corrections in sections 1, 2, 5 and 8.
 
 ### How the in-app assistant works

@@ -135,6 +135,15 @@ def calculate_economic_losses(
     return df_calc
 
 
+def _top_first(df: pd.DataFrame, by: list, ascending: list) -> pd.DataFrame:
+    """
+    Sort with a fixed tie-break, so every computer ranks counties the same way.
+    Exact ties are broken by FIPS code; without it, which tied county lands just above
+    or below the funding cutoff depended on the machine's sort routine.
+    """
+    return df.sort_values(by=[*by, "fips"], ascending=[*ascending, True], kind="mergesort")
+
+
 def allocate_relief_budget(
     df: pd.DataFrame,
     state_alpha: str = "IA",
@@ -166,29 +175,20 @@ def allocate_relief_budget(
         
     # Calculate Urgency Score & Economic Losses
     subset["urgency_score"] = compute_urgency_score(subset)
+    # Unrounded score: breaks ties between counties that round to the same displayed score.
+    # It uses only August data; dollar losses aren't known until harvest.
+    subset["_urgency_raw"] = urgency_components(subset)["net_urgency"]
     subset = calculate_economic_losses(subset, crop=crop)
     
     # Sort according to selected policy criteria
     if sort_by == "dollar_loss":
-        subset.sort_values(
-            by=["estimated_dollar_loss", "urgency_score"],
-            ascending=[False, False],
-            inplace=True
-        )
+        subset = _top_first(subset, ["estimated_dollar_loss", "_urgency_raw"], [False, False])
     elif sort_by == "yield_loss":
-        subset.sort_values(
-            by=["yield_anomaly_pct", "urgency_score"],
-            ascending=[True, False],
-            inplace=True
-        )
+        subset = _top_first(subset, ["yield_anomaly_pct", "_urgency_raw"], [True, False])
     else:  # default: agronomic urgency score
-        subset.sort_values(
-            by=["urgency_score", "estimated_dollar_loss"],
-            ascending=[False, False],
-            inplace=True
-        )
+        subset = _top_first(subset, ["_urgency_raw"], [False])
 
-    subset.reset_index(drop=True, inplace=True)
+    subset = subset.drop(columns="_urgency_raw").reset_index(drop=True)
     subset["rank"] = np.arange(1, len(subset) + 1)
     
     # Assign Action Tiers
@@ -260,9 +260,6 @@ def evaluate_out_of_sample_validation(
     train_df = sub[sub["year"].between(*train_years)].copy()
     test_df = sub[sub["year"].between(*test_years)].copy()
     
-    # Compute urgency score across dataset
-    test_df["urgency_score"] = compute_urgency_score(test_df)
-    
     expected_cols = [
         "year", "counties", "tier1_quota_k", "actual_severe_counties",
         "random_expected_hits", "rain_deficit_hits", "pure_dsci_hits",
@@ -290,18 +287,20 @@ def evaluate_out_of_sample_validation(
             
         k = max(1, int(np.ceil(len(ydf) * top_k_pct)))
         ydf["is_severe"] = ydf["yield_anomaly_pct"] <= severe_threshold_pct
+        # Score each season on its own, exactly as the dashboard ranks it in August
+        ydf["urgency_raw"] = urgency_components(ydf)["net_urgency"]
         n_severe = int(ydf["is_severe"].sum())
         
         # 1. Rain Deficit Target: lowest precip_anomaly_pct
-        top_rain = ydf.sort_values("precip_anomaly_pct", ascending=True).head(k)
+        top_rain = _top_first(ydf, ["precip_anomaly_pct"], [True]).head(k)
         rain_hits = int(top_rain["is_severe"].sum())
         
         # 2. Pure DSCI Target: highest mean_dsci
-        top_dsci = ydf.sort_values("mean_dsci", ascending=False).head(k)
+        top_dsci = _top_first(ydf, ["mean_dsci"], [False]).head(k)
         dsci_hits = int(top_dsci["is_severe"].sum())
         
-        # 3. Urgency Model: highest urgency_score
-        top_model = ydf.sort_values("urgency_score", ascending=False).head(k)
+        # 3. Urgency Model: highest urgency score (same ranking as allocate_relief_budget)
+        top_model = _top_first(ydf, ["urgency_raw"], [False]).head(k)
         model_hits = int(top_model["is_severe"].sum())
         
         # 4. Expected Random Hits
