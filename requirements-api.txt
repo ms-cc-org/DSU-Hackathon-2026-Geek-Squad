@@ -1,0 +1,8 @@
+# Only what api_server.py needs (installed on Render; see render.yaml).
+# Full dev/notebook environment: requirements.txt
+pandas==2.3.3
+numpy==2.4.6
+pyarrow==25.0.1
+scikit-learn==1.9.1
+anthropic==1.15.0
+python-dotenv==1.2.4

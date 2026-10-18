@@ -1,15 +1,19 @@
 const SELECT =
   'bg-surface-container-low border-0 rounded-lg py-1 pl-2 pr-7 font-label-code text-label-code text-on-surface focus:outline-none focus:ring-1 focus:ring-accent-neon cursor-pointer';
-const NAV = [
-  ['decision', 'Decision'],
-  ['answer', 'Who gets relief'],
-  ['why', 'Why'],
-  ['proof', 'Does it work?'],
-  ['county', 'County report card'],
-  ['limits', 'Limits & data'],
+import Icon from './Icon.jsx';
+
+// Pages in pitch order; "Ask the data" is the AI assistant.
+export const PAGES = [
+  { id: 'decision', label: 'The decision', icon: 'gavel' },
+  { id: 'answer', label: 'Who gets relief', icon: 'payments' },
+  { id: 'why', label: 'Why', icon: 'insights' },
+  { id: 'proof', label: 'Does it work?', icon: 'verified' },
+  { id: 'county', label: 'County report card', icon: 'analytics' },
+  { id: 'limits', label: 'Limits & data', icon: 'info' },
+  { id: 'ask', label: 'Ask the data', icon: 'smart_toy' },
 ];
 
-export default function Header({ options, stateCode, onStateChange, crop, onCropChange, year, onYearChange, budgetM, onBudgetChange, quotaPct, onQuotaChange, loading }) {
+export default function Header({ page, onNavigate, options, stateCode, onStateChange, crop, onCropChange, year, onYearChange, budgetM, onBudgetChange, quotaPct, onQuotaChange, loading }) {
   const crops = options?.states.find((s) => s.code === stateCode)?.crops ?? [];
   const years = options ? [...options.years].reverse() : [];
 
@@ -24,15 +28,23 @@ export default function Header({ options, stateCode, onStateChange, crop, onCrop
             <span className="font-headline-sm text-title-md font-bold text-primary tracking-tight">Drought Relief Targeting</span>
             <span className="hidden md:inline font-label-code text-label-code text-text-muted">· Team Geek Squad · DSU Hackathon 2026</span>
           </div>
-          <nav className="flex items-center gap-1 overflow-x-auto">
-            {NAV.map(([id, label]) => (
-              <a
-                key={id}
-                href={`#${id}`}
-                className="px-2.5 py-1 rounded-lg font-body-sm text-body-sm text-on-surface-variant hover:text-primary hover:bg-surface-container-high whitespace-nowrap"
+          <nav className="flex items-center gap-1 overflow-x-auto" aria-label="Pages">
+            {PAGES.map((p, i) => (
+              <button
+                key={p.id}
+                onClick={() => onNavigate(p.id)}
+                aria-current={page === p.id ? 'page' : undefined}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-body-sm text-body-sm whitespace-nowrap transition-colors ${
+                  page === p.id
+                    ? 'bg-primary-container text-on-primary-container font-bold'
+                    : p.id === 'ask'
+                      ? 'text-accent-neon border border-accent-neon/40 hover:bg-surface-container-high'
+                      : 'text-on-surface-variant hover:text-primary hover:bg-surface-container-high'
+                }`}
               >
-                {label}
-              </a>
+                <Icon name={p.icon} className="text-[16px]" />
+                {p.id === 'ask' ? p.label : `${i + 1}. ${p.label}`}
+              </button>
             ))}
           </nav>
         </div>

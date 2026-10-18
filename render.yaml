@@ -1,0 +1,19 @@
+# Render blueprint for the JSON API (api_server.py). The React UI is hosted on GitHub Pages.
+# Render dashboard -> New -> Blueprint -> pick this repo. Then set the two "sync: false" values.
+services:
+  - type: web
+    name: drought-relief-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements-api.txt
+    startCommand: python api_server.py
+    healthCheckPath: /api/options
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.5
+      - key: HOST
+        value: 0.0.0.0
+      - key: CORS_ORIGINS
+        value: https://ms-cc-org.github.io
+      - key: ANTHROPIC_API_KEY
+        sync: false        # paste the key in the Render dashboard; never commit it

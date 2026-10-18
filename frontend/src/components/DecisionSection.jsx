@@ -23,7 +23,7 @@ export default function DecisionSection({ ctx }) {
       icon: 'verified',
       q: 'How do we know it works?',
       a: 'The rules were set on 2000–2015 and then tested blind on 2016–2025, against the counties whose harvests actually collapsed.',
-      link: '#proof',
+      link: true,
     },
   ];
 
@@ -43,9 +43,7 @@ export default function DecisionSection({ ctx }) {
             </div>
             <p className="font-body-md text-body-md text-on-surface mt-2">{it.a}</p>
             {it.link && (
-              <a href={it.link} className="inline-block mt-2 font-label-code text-label-code text-accent-neon hover:underline">
-                See the test results ↓
-              </a>
+              <span className="inline-block mt-2 font-label-code text-label-code text-accent-neon">Results on page 4: Does it work?</span>
             )}
           </div>
         ))}

@@ -11,6 +11,9 @@ Standard library only, no extra dependencies:
 If frontend/dist exists (npm run build), it is served at / as well, so one
 command runs the whole dashboard. During frontend development run
 `npm run dev` in frontend/; Vite proxies /api to this server.
+
+Hosted (Render, see render.yaml): the GitHub Pages build calls this server cross-origin,
+so CORS_ORIGINS lists the allowed site origins, e.g. "https://ms-cc-org.github.io".
 """
 
 from functools import lru_cache
@@ -24,6 +27,7 @@ import sys
 
 import numpy as np
 import pandas as pd
+from dotenv import load_dotenv
 
 _ROOT = Path(__file__).resolve().parent
 if str(_ROOT) not in sys.path:
@@ -38,6 +42,7 @@ from src.priority_model import (
 )
 from src.report_card import get_county_report_card
 from src import insights
+from src.advisor import Advisor, AdvisorUnavailable
 from src.insights import SEVERE_THRESHOLD_PCT, TEST_YEARS, TRAIN_YEARS
 
 DIST_DIR = _ROOT / "frontend" / "dist"
@@ -46,8 +51,11 @@ DIST_DIR = _ROOT / "frontend" / "dist"
 STATES = {"IA": "Iowa", "NE": "Nebraska", "CA": "California", "DE": "Delaware"}
 SORT_MODES = {"urgency", "dollar_loss", "yield_loss"}
 
+load_dotenv(_ROOT / ".env")   # ANTHROPIC_API_KEY for the "Ask the data" assistant (never committed)
+
 print("Loading master dataset...")
 DF = load_master()
+ADVISOR = Advisor(DF)
 GEOJSON = load_counties()
 print(f"  {len(DF):,} rows loaded")
 
@@ -336,6 +344,32 @@ def route(path, q):
     return None
 
 
+# Origins allowed to call the API from a browser (GitHub Pages site). Comma-separated; "*" allows any.
+CORS_ORIGINS = {o.strip().rstrip("/") for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()}
+
+MAX_QUESTION_CHARS = 1000
+MAX_HISTORY_TURNS = 10
+
+
+def chat(body: dict) -> tuple[int, dict]:
+    """POST /api/chat  {question, history: [{role, content}], context: {state, crop, year, budget_m, quota_pct}}"""
+    question = str(body.get("question", "")).strip()[:MAX_QUESTION_CHARS]
+    if not question:
+        return 400, {"error": "Ask a question first."}
+    history = [
+        {"role": m["role"], "content": str(m["content"])[:4000]}
+        for m in body.get("history", [])[-MAX_HISTORY_TURNS:]
+        if m.get("role") in ("user", "assistant") and m.get("content")
+    ]
+    try:
+        return 200, ADVISOR.ask(history, question, body.get("context") or {})
+    except AdvisorUnavailable as e:
+        return 503, {
+            "error": f"{e} Add ANTHROPIC_API_KEY=... to a .env file in the repo root and restart python api_server.py.",
+            "setup": True,
+        }
+
+
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(DIST_DIR), **kwargs)
@@ -365,6 +399,36 @@ class Handler(SimpleHTTPRequestHandler):
             return self._send(200, "text/csv", result.encode("utf-8"), {"Content-Disposition": f'attachment; filename="{name}"'})
         self._send(200, "application/json", json.dumps(result, allow_nan=False).encode())
 
+    def end_headers(self):
+        origin = (self.headers.get("Origin") or "").rstrip("/")
+        if origin and ("*" in CORS_ORIGINS or origin in CORS_ORIGINS):
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+        super().end_headers()
+
+    def do_OPTIONS(self):   # CORS preflight for POST /api/chat
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Max-Age", "86400")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def do_POST(self):
+        if urlparse(self.path).path != "/api/chat":
+            return self._send(404, "application/json", b'{"error": "not found"}')
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(min(length, 200_000)) or b"{}")
+        except (ValueError, json.JSONDecodeError):
+            return self._send(400, "application/json", b'{"error": "invalid JSON"}')
+        try:
+            code, result = chat(body)
+        except Exception as e:   # API outages, rate limits: show the reason in the chat
+            self.log_error("chat error: %r", e)
+            code, result = 502, {"error": f"The assistant is unavailable right now ({type(e).__name__}). Try again in a moment."}
+        self._send(code, "application/json", json.dumps(result, default=str).encode())
+
     def _send(self, code, ctype, body, headers=None):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
@@ -377,5 +441,6 @@ class Handler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    print(f"Drought relief API on http://localhost:{port}  (frontend: {'served' if DIST_DIR.exists() else 'not built'})")
-    ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
+    host = os.environ.get("HOST", "127.0.0.1")   # render.yaml sets 0.0.0.0
+    print(f"Drought relief API on http://{host}:{port}  (frontend: {'served' if DIST_DIR.exists() else 'not built'})")
+    ThreadingHTTPServer((host, port), Handler).serve_forever()

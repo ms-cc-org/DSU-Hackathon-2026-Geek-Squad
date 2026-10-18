@@ -143,15 +143,21 @@ DSU-Hackathon-2026-Geek-Squad/
 ├── api_server.py                # JSON API for the React app (stdlib only); also serves frontend/dist
 ├── frontend/                    # React + Vite + Tailwind dashboard (the demo UI)
 │   └── src/
-│       ├── App.jsx              # Shared controls: state, crop, year, budget, quota, sort, selected county
-│       ├── lib/api.js           # fetch helper; every number comes from /api/*
-│       └── components/          # Ranking & map, Relief Allocation, Model Validation, County Report Card
+│       ├── App.jsx              # Shared controls + page switcher (one page per pitch step, "Next" buttons)
+│       ├── lib/api.js           # fetch helpers (GET /api/*, POST /api/chat); every number comes from the API
+│       └── components/          # Header (page tabs), Decision, Ranking & map, Why, Validation, Report Card, Limits,
+│                                #   AdvisorView.jsx = the "Ask the data" chat page
 ├── app.py                       # Streamlit version: one page in pitch order (who/decision banner → answer → why → proof → report card → limits)
-├── requirements.txt             # Dependencies (streamlit, plotly, pandas, scikit-learn)
+├── requirements.txt             # Dependencies (streamlit, plotly, pandas, scikit-learn, anthropic, python-dotenv)
+├── .env                         # NOT committed (git-ignored). Holds ANTHROPIC_API_KEY for the AI chat
+├── requirements-api.txt         # Slim deps for the hosted API (Render)
+├── render.yaml                  # Render blueprint: hosts api_server.py
+├── .github/workflows/pages.yml  # Builds frontend/ and publishes it to GitHub Pages
 ├── readmeforGroup.md            # THIS FILE: Master briefing & cheat sheet
 ├── src/
 │   ├── data_loader.py           # Loads parquet files and counties.geojson
 │   ├── priority_model.py        # Urgency scoring, economic losses, relief allocation, validation
+│   ├── advisor.py               # "Ask the data" assistant: Claude + read-only tools over the model
 │   ├── insights.py              # Shared evidence helpers: data-quality counts, driver correlations, test design constants
 │   └── report_card.py           # Generates 26-year single-county agronomic report cards
 └── data/
@@ -194,7 +200,58 @@ cd frontend && npm install && npm run build && cd ..
 python api_server.py
 ```
 * Open your browser to: `http://localhost:8000`
+* **Pages (tabs at the top):** 1 The decision → 2 Who gets relief → 3 Why → 4 Does it work? → 5 County report card → 6 Limits & data, plus **Ask the data** (AI assistant). Each page has a "Next" button, so the demo can walk straight through the pitch.
+* **Ask the data (AI chatbot):** answers plain-English questions by calling our own model functions as tools (`src/advisor.py`), so its numbers match the dashboard, and it says "the data can't answer that" for field-level, irrigation, other-state or post-2025 questions. It needs an Anthropic API key:
+  ```bash
+  echo "ANTHROPIC_API_KEY=sk-ant-..." > .env   # repo root; .env is git-ignored, never commit it
+  python api_server.py
+  ```
+  Without a key, every other page works, and the chat shows these setup steps.
+
+#### ⚠️ "Ask the data" failing? Troubleshooting (as of Oct 17)
+**Current status:** the chat is wired up end to end, and all 5 tools it uses (`rank_counties`, `county_details`,
+`validation_results`, `what_drives_losses`, `data_coverage`) were tested directly against the dataset and return
+correct numbers. **It fails right now only because the repo has no `.env` file, so there's no API key.**
+The server answers every question with HTTP 503: *"No Anthropic API key is configured."*
+
+| What you see in the chat | Cause | Fix |
+|---|---|---|
+| Server won't start: `ModuleNotFoundError: No module named 'anthropic'` | Running conda `(base)` Python instead of the project `.venv` | `conda deactivate && source .venv/bin/activate`, then `python api_server.py` (or `pip install -r requirements.txt` in whatever env you use) |
+| "No Anthropic API key is configured…" | No `.env` file / no `ANTHROPIC_API_KEY` | Create `.env` in the repo root (see above), then **restart** `python api_server.py` |
+| "The Anthropic API key was rejected." | Typo, revoked key, or a key with no credits | Get a new key at console.anthropic.com, update `.env`, restart |
+| "The assistant is unavailable right now (RateLimitError / APIConnectionError…)" | Rate limit, outage, or no internet (venue Wi-Fi) | Wait and retry; check the server terminal for the full error |
+| "HTTP 501" or "HTTP 404" | An **old** `api_server.py` process from before the chat was added is still running | Stop it (Ctrl+C) and start it again |
+| "Failed to fetch" | `api_server.py` isn't running (or `npm run dev` without the API on :8000) | Start `python api_server.py` |
+
+* The key is read **only at startup** (`load_dotenv` in `api_server.py`), so you must restart the server after editing `.env`.
+* `export ANTHROPIC_API_KEY=sk-ant-...` in the same terminal works too, instead of a `.env` file.
+* Quick check without the UI:
+  ```bash
+  python -c "from api_server import chat; print(chat({'question': 'Which counties get relief?', 'context': {}}))"
+  ```
+  `(200, {...answer...})` means it works; `(503, ...)` means the key is still missing.
+* **Demo backup:** if the venue Wi-Fi is down, the chat can't reach the API. Skip the AI page; all other pages run offline.
 * Editing the UI? Keep `python api_server.py` running and run `npm run dev` in `frontend/` (http://localhost:5173, `/api` is proxied).
+
+### 4. Live Website: GitHub Pages (UI) + Render (API)
+GitHub Pages only hosts static files, so the Python API runs on Render and the Pages site calls it.
+```
+Browser → https://ms-cc-org.github.io/DSU-Hackathon-2026-Geek-Squad/   (React UI, GitHub Pages)
+            └─ fetch → https://drought-relief-api.onrender.com/api/*   (api_server.py, Render)
+```
+**One-time setup (needs repo admin):**
+1. **Render (API):** render.com → sign in with GitHub → **New → Blueprint** → pick this repo (it reads `render.yaml`).
+   When asked, paste the real `ANTHROPIC_API_KEY`. Wait for the deploy, then copy the service URL
+   (e.g. `https://drought-relief-api.onrender.com`) and check `<url>/api/options` returns JSON.
+2. **GitHub repo variable:** Settings → Secrets and variables → Actions → **Variables** → New: `API_URL` = the Render URL (no trailing slash).
+3. **GitHub Pages:** Settings → Pages → Source: **GitHub Actions**.
+4. Push to `main` (or Actions → "Deploy frontend to GitHub Pages" → Run workflow). The site URL appears in the workflow run.
+
+**Things to know:**
+* **Free Render services sleep after ~15 min idle;** the first request then takes ~30–60 s. Open the site a few minutes before the demo to wake it.
+* The API only answers browsers from origins listed in `CORS_ORIGINS` (`render.yaml`: `https://ms-cc-org.github.io`). If the site moves (fork, custom domain), add that origin in the Render dashboard.
+* The chat endpoint is public, so anyone with the URL can spend API credits. **Set a monthly spend limit** on the key in console.anthropic.com.
+* Local dev is unchanged: with no `VITE_API_BASE`, the UI calls `/api` on the same server.
 
 ---
 
@@ -204,6 +261,16 @@ python api_server.py
 * [x] Core data pipeline loaded without errors.
 * [x] First version runs and displays real results on screen.
 * [x] Ranked CSV generated using the model: `data/processed/county_priority_rankings_2020.csv`.
+
+### Current Status (Saturday, Oct 17):
+* [x] React dashboard split into pitch-order pages (tabs + "Next" buttons) instead of one long scroll.
+* [x] Streamlit and React dashboards show the same numbers (both call `src/priority_model.py`).
+* [x] "Ask the data" AI assistant built: `src/advisor.py` (Claude + 5 read-only tools), `POST /api/chat` in `api_server.py`, `AdvisorView.jsx` page.
+* [ ] **Blocked: the AI chat needs `ANTHROPIC_API_KEY` in `.env`** (see the troubleshooting table in section 7). Whoever owns the key: add it locally, never commit it.
+* [ ] After the key is in: test the 4 suggested questions in the chat, including the "can't answer" one (farm field near Ames).
+* [x] Deployment config written: `render.yaml` (API on Render) + `.github/workflows/pages.yml` (UI on GitHub Pages). Tested locally: Pages-style build and CORS.
+* [ ] **Deploy:** do the one-time setup in section 7.4 (Render blueprint + `API_URL` variable + Pages source).
+* [ ] Commit the uncommitted AI chat and page-navigation work (`api_server.py`, `src/advisor.py`, `frontend/src/…`).
 
 ### Work-Split by Team Member:
 
@@ -218,7 +285,8 @@ python api_server.py
 * **Primary Files**: `frontend/src/` (React UI), `api_server.py`; `app.py` (Streamlit backup)
 * **Tasks**:
   * Test the controls (State, Crop, Year, Budget slider, Tier 1 quota, Rank by).
-  * The app is one page that follows the pitch: 1 Decision → 2 Who gets relief → 3 Why → 4 Does it work? → 5 County report card → 6 Limits & data.
+  * The app has one page per pitch step (tabs at the top + "Next" buttons): 1 Decision → 2 Who gets relief → 3 Why → 4 Does it work? → 5 County report card → 6 Limits & data → Ask the data (AI).
+  * Test the "Ask the data" page once the API key is in `.env` (answers should quote the same numbers as the dashboard).
   * Verify the map toggle ("Our August pick" vs "What the harvest showed"), clicking a county → report card, the "Show the math" popup, and the CSV download.
   * Spot-check a thin state (Delaware): the page should say there's too little data rather than claim a win.
   * After any UI change, run `npm run build` in `frontend/` so `python api_server.py` serves the latest version.
