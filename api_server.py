@@ -443,4 +443,7 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     host = os.environ.get("HOST", "127.0.0.1")   # render.yaml sets 0.0.0.0
     print(f"Drought relief API on http://{host}:{port}  (frontend: {'served' if DIST_DIR.exists() else 'not built'})")
-    ThreadingHTTPServer((host, port), Handler).serve_forever()
+    try:
+        ThreadingHTTPServer((host, port), Handler).serve_forever()
+    except KeyboardInterrupt:   # Ctrl+C
+        print("\nServer stopped.")
